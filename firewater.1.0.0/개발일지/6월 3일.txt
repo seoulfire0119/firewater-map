@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>다음 지도 API</title>
+</head>
+<body>
+  <p>
+    <button onclick="hideMarkers()">마커 감추기</button>
+    <button onclick="showMarkers()">마커 보이기</button>
+</p> 
+	<div id="map" style="width:100%;height:100vh;"></div>
+  
+
+	<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34231db234ea6e90d3f8ec0f6a735cd5"></script>
+	<script>
+		var mapContainer = document.getElementById('map'),
+		    mapOption = {
+		        center: new kakao.maps.LatLng(37.530212, 126.872946),
+		        level: 4,
+		        mapTypeId : kakao.maps.MapTypeId.ROADMAP
+		    }; 
+
+		var map = new kakao.maps.Map(mapContainer, mapOption);
+
+		var markers = [];
+
+		var data = [
+[37.5165688,126.8540466,220154],
+[37.5244667,126.8469334,280102],
+[37.5205653,126.868844,250023],
+[37.5056268,126.8661477,260071],
+[37.5393618,126.8645308,360115],
+[37.5400983,126.8658534,360116],
+[37.5402439,126.8672606,360117],
+[37.5401077,126.8661295,360118],
+[37.5482132,126.8655111,360119],
+[37.5440314,126.873129,350138],
+[37.5460198,126.8767941,350139],
+[37.5447636,126.8704085,350140],
+[37.5450814,126.8696531,350141],
+[37.5423362,126.8708611,350142],
+[37.5388321,126.8249294,290091],
+[37.5387908,126.8243042,290092],
+[37.5210144,126.8407581,300086],
+[37.5186771,126.8390955,300087],
+[37.5362288,126.8288026,310069],
+[37.536978,126.8279877,310070],
+[37.5297061,126.8324456,310071],
+[37.5396579,126.8271225,310072],
+[37.5393441,126.8328986,310073],
+[37.5147118,126.8408879,320068],
+[37.5168486,126.8370826,330071],
+[37.5206127,126.8372246,330072],
+[37.531989,126.827622,290093],
+[37.5165217,126.8474433,320086],
+[37.5172754,126.8492186,220155],
+[37.544015,126.8808714,350143],
+[37.5353405,126.8652693,370134],
+[37.537584,126.8709715,370133],
+[37.5251077,126.8685393,340026],
+[37.527149,126.875036,340027],
+[37.5388319,126.8664757,370008],
+[37.5345368,126.869481,370009],
+[37.5346832,126.8688385,370010],
+[37.5357068,126.8790545,380026],
+[37.521592,126.8723214,210007],
+[37.5224788,126.871319,210008],
+		];
+
+		// 빨간색 마커 이미지 생성
+		var redMarkerSrc = 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+		    redMarkerSize = new kakao.maps.Size(32, 32),
+		    redMarkerOption = { 
+		        offset: new kakao.maps.Point(16, 32)
+		    };
+
+		var redMarkerImage = new kakao.maps.MarkerImage(redMarkerSrc, redMarkerSize, redMarkerOption);
+
+		for (var i = 0; i < data.length; i++) {
+			var marker = new kakao.maps.Marker({
+			    position: new kakao.maps.LatLng(data[i][0], data[i][1]),
+			    map: map
+			});
+
+			markers.push(marker);
+
+			(function(marker, i) {
+			    kakao.maps.event.addListener(marker, 'click', function() {
+			        var content = '<div style="padding:5px;">' + data[i][2] + '<br><button onclick="completeCheck(' + i + ');">용수확인 완료</button></div>';
+			        
+                    var infowindow = new kakao.maps.InfoWindow({
+                        content : content
+                    });
+
+                    // 기존 열려있던 인포윈도우 닫기
+                    if (currInfowindow) {
+                        currInfowindow.close();
+                    }
+                    currInfowindow = infowindow;
+                    
+                    // 클릭한 마커 위에 인포윈도우 표시
+                    infowindow.open(map, marker);
+			    });
+			})(marker, i);
+		}
+
+		var currInfowindow; // 현재 열린 인포윈도우
+
+		completeCheck = function(i) {
+			currInfowindow.close();
+			markers[i].setImage(redMarkerImage);
+
+			kakao.maps.event.removeListener(markers[i], 'click'); // 기존 이벤트 제거
+
+			kakao.maps.event.addListener(markers[i], 'click', function() {
+			    var content = '<div style="padding:5px;">' + data[i][2] + '<br><button onclick="cancelCheck(' + i + ');">확인취소</button></div>';
+			    
+                var infowindow = new kakao.maps.InfoWindow({
+                    content : content
+                });
+
+                // 기존 열려있던 인포윈도우 닫기
+                if (currInfowindow) {
+                    currInfowindow.close();
+                }
+                currInfowindow = infowindow;
+
+                // 클릭한 빨간색 마커 위에 인포윈도우 표시
+                infowindow.open(map, markers[i]);
+			});
+		};
+
+		cancelCheck = function(i) {
+			currInfowindow.close();
+			markers[i].setImage(null); // 이미지 리셋
+
+			kakao.maps.event.removeListener(markers[i], 'click'); // 기존 이벤트 제거
+
+			(function(marker, i) {
+			    kakao.maps.event.addListener(markers[i], 'click', function() {
+			        var content = '<div style="padding:5px;">' + data[i][2] + '<br><button onclick="completeCheck(' + i + ');">용수확인 완료</button></div>';
+			        
+                    var infowindow = new kakao.maps.InfoWindow({
+                        content : content
+                    });
+
+                    // 기존 열려있던 인포윈도우 닫기
+                    if (currInfowindow) {
+                        currInfowindow.close();
+                    }
+                    currInfowindow = infowindow;
+                    
+                    // 클릭한 파란색 마커 위에 인포윈도우 표시
+                    infowindow.open(map, markers[i]);
+			    });
+			})(markers[i], i);
+		};
+
+    // 배열에 추가된 마커들을 지도에 표시하거나 삭제하는 함수입니다
+function setMarkers(map) {
+    for (var i = 0; i < markers.length; i++) {
+        markers[i].setMap(map);
+    }            
+}
+
+// "마커 보이기" 버튼을 클릭하면 호출되어 배열에 추가된 마커를 지도에 표시하는 함수입니다
+function showMarkers() {
+    setMarkers(map)    
+}
+
+// "마커 감추기" 버튼을 클릭하면 호출되어 배열에 추가된 마커를 지도에서 삭제하는 함수입니다
+function hideMarkers() {
+    setMarkers(null);    
+}
+	</script>
+</body>
+</html>

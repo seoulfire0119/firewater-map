@@ -1,0 +1,6 @@
+# 개발일지 zip
+개발일지/*.zip
+
+# OS
+.DS_Store
+Thumbs.db

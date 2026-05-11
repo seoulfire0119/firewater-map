@@ -1,0 +1,14 @@
+
+
+const text = ` ㄴㄴㄴ`;
+
+const formattedText = text.split('\n')
+  .map(line => {
+    const values = line.split(',');
+    const quotedValues = values.map(value => isNaN(value) ? `"${value}"` : value);
+    return '[' + quotedValues.join(",") + '],';
+  })
+  .join('\n');
+
+console.log(formattedText);
+

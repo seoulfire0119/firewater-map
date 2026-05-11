@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>다음 지도 API</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/478feb51b9.js" crossorigin="anonymous"></script>
+</head>
+<body>
+	<div class="full">
+	<div class="fullscreen">
+	<section class="container">		
+		<form id="search-form">
+			<button><img src="image/뒤로가기.png" alt="뒤로가기" ></button>
+			<input type="text" id="search" placeholder="번호를 입력하세요">
+			<button id="searchBtn">검색</button>
+		</form>
+		<section id="search-results-container">
+			<div id="search-results-wrapper">
+				<div id="search-results"></div>
+				<button id="hide-search-results" style="align-self:center;margin-bottom: 1rem;">검색완료</button>
+        <button id="show-all-markers">마커 전부 보이기</button>
+      </div>
+	</section>
+	</section>
+</div>
+</div>
+
+
+<div id="reopen-search">
+	<button>검색하기</button>
+  <!-- <div id="current-location-marker">내위치 찾기</div> -->
+</div>
+<div id="map"></div>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34231db234ea6e90d3f8ec0f6a735cd5"></script>
+<script>
+var mapContainer = document.getElementById('map'),
+		mapOption = {
+		center: new kakao.maps.LatLng(37.530212, 126.872946),
+		level: 4,
+		mapTypeId : kakao.maps.MapTypeId.ROADMAP}; 
+//마커를 숨깁니다.
+function hideAllMarkers() {
+    for (let i = 0; i < markers.length; i++) {
+        markers[i].setMap(null);
+        markerOverlays[i].setMap(null);}};
+var map = new kakao.maps.Map(mapContainer, mapOption);
+var data = [
+[37.5165688,126.8540466,220154,"양천","신정119안전센터","지상식","양호"],
+[37.5244667,126.8469334,280102,"양천","신정119안전센터","지하식","양호"],
+[37.5205653,126.868844,250023,"양천","신트리119안전센터","지상식","양호"],
+[37.5056268,126.8661477,260071,"양천","신트리119안전센터","지하식","양호"],
+[37.5393618,126.8645308,360115,"양천","목동119안전센터","지하식","양호"],
+[37.5400983,126.8658534,360116,"양천","목동119안전센터","지하식","양호"],
+[37.5402439,126.8672606,360117,"양천","목동119안전센터","지하식","양호"],
+[37.5401077,126.8661295,360118,"양천","목동119안전센터","지하식","양호"],
+[37.5482132,126.8655111,360119,"양천","목동119안전센터","지하식","양호"],
+[37.5440314,126.873129,350138,"양천","목동119안전센터","지하식","양호"],
+[37.5460198,126.8767941,350139,"양천","목동119안전센터","지하식","양호"],
+[37.5447636,126.8704085,350140,"양천","목동119안전센터","지하식","양호"],
+[37.5450814,126.8696531,350141,"양천","목동119안전센터","지하식","양호"],
+[37.5423362,126.8708611,350142,"양천","목동119안전센터","지하식","양호"],
+[37.5388321,126.8249294,290091,"양천","신월119안전센터","지하식","양호"],
+[37.5387908,126.8243042,290092,"양천","신월119안전센터","지하식","고장(사용가)"],
+[37.5210144,126.8407581,300086,"양천","신정119안전센터","지하식","양호"],
+[37.5186771,126.8390955,300087,"양천","신정119안전센터","지하식","양호"],
+[37.5362288,126.8288026,310069,"양천","신월119안전센터","지상식","양호"],
+[37.536978,126.8279877,310070,"양천","신월119안전센터","지상식","양호"],
+[37.5297061,126.8324456,310071,"양천","신월119안전센터","지상식","양호"],
+[37.5396579,126.8271225,310072,"양천","신월119안전센터","지상식","양호"],
+[37.5393441,126.8328986,310073,"양천","신월119안전센터","지상식","양호"],
+[37.5147118,126.8408879,320068,"양천","신트리119안전센터","지하식","양호"],
+[37.5168486,126.8370826,330071,"양천","신월119안전센터","지하식","양호"],
+[37.5206127,126.8372246,330072,"양천","신월119안전센터","지하식","양호"],
+[37.531989,126.827622,290093,"양천","신월119안전센터","지상식","양호"],
+[37.5165217,126.8474433,320086,"양천","신트리119안전센터","지하식","양호"],
+[37.5172754,126.8492186,220155,"양천","신정119안전센터","지상식","양호"],
+[37.544015,126.8808714,350143,"양천","목동119안전센터","지상식","양호"],
+[37.5353405,126.8652693,370134,"양천","현장대응단","지하식","양호"],
+[37.537584,126.8709715,370133,"양천","현장대응단","지상식","양호"],
+[37.5251077,126.8685393,340026,"양천","현장대응단","지상식","양호"],];
+        var markers = [];
+        var markerOverlays = [];
+        let checkedBoxes = {};
+		let currInfowindow;
+		var searchResultsDiv = document.getElementById("search-results");
+        const reopenSearchBtn = document.querySelector("#reopen-search button");
+        const showAllMarkersBtn = document.getElementById("show-all-markers");
+        let isShowingAllMarkers = false;
+        initializeMarkers();
+        hideAllMarkers();
+        
+
+// 모두 보이기/감추기 할때 사용되는 함수
+function showAllMarkers() {
+    for (let i = 0; i < data.length; i++) {
+    markers[i].setMap(map);
+    markerOverlays[i].setMap(map); }};
+showAllMarkersBtn.addEventListener("click", () => {
+  if (!isShowingAllMarkers) {
+    showAllMarkers();
+    isShowingAllMarkers = true;
+  } else {
+    hideAllMarkers();
+    isShowingAllMarkers = false;
+  }});
+
+// 새로운 검색 버튼
+reopenSearchBtn.addEventListener("click", () => {
+    fullscreen.style.display = "flex";});
+
+// 검색창 닫기 버튼
+const hideSearchResultsBtn = document.getElementById("hide-search-results");
+const fullscreen = document.querySelector(".fullscreen");
+hideSearchResultsBtn.addEventListener("click", () => {
+    fullscreen.style.display = "none";});
+
+
+// 체크박스 활성화에 따른 마커 업데이트
+function updateMarkers() {  
+const checkBoxes = Array.from
+(document.querySelectorAll('#search-results input[type="checkbox"]'));
+    checkBoxes.forEach((checkBox) => {
+const dataIndex = data.findIndex((d) => d[2] === parseInt(checkBox.id.split("-")[2], 10));
+        // 체크박스 체크가 되어있다면 맵에 표시됨
+        if (checkBox.checked) {
+            markers[dataIndex].setMap(map);
+            markerOverlays[dataIndex].setMap(map); 
+            map.panTo(markers[dataIndex].getPosition());
+        // 체크박스가 체크 되어있지 않으면 맵에서 표시안됨  
+        } else {
+            markers[dataIndex].setMap(null);
+            markerOverlays[dataIndex].setMap(null); 
+            }});}
+		
+            document.getElementById("searchBtn")
+    .addEventListener("click", function (event) {
+        event.preventDefault();
+        clearSearchResults();
+
+        // 주요 작업을 별도의 함수로
+        updateSearchResults();
+        updateMarkers();
+    });
+
+// 결과를 지우는 함수
+function clearSearchResults() {
+    searchResultsDiv.innerHTML = '';
+}
+
+// 검색 결과를 업데이트하는 함수
+function updateSearchResults() {
+    const searchValue = document.getElementById("search").value;
+    const searchResults = data.filter((d) => String(d[2]).startsWith(searchValue));
+    searchResults.forEach((coordinates, index) => {
+        const listItem = document.createElement("div");
+        const checkBox = document.createElement("input");
+        checkBox.type = "checkbox";
+        checkBox.id = `result-checkbox-${coordinates[2]}`;
+        listItem.innerHTML = `일련번호: ${coordinates[2]}`;
+        listItem.insertBefore(checkBox, listItem.childNodes[0]);
+        checkBox.checked = checkedBoxes[coordinates[2]] || false;
+        searchResultsDiv.appendChild(listItem);
+        const dataIndex = data.findIndex((d) => d[2] === coordinates[2]);
+        checkBox.addEventListener("change", function () {
+            checkedBoxes[coordinates[2]] = this.checked;
+            updateMarkers(); // 이 코드를 추가합니다.
+        });
+    });
+
+    if (searchResults.length === 0) {
+        searchResultsDiv.innerHTML = "<i>검색 결과가 없습니다.</i>";
+    }
+}
+
+		
+// 마커 용수확인 누르면 이미지를 변환시킵니다.    
+function getMarkerImage(color) {
+return new kakao.maps.MarkerImage(
+color === "red" ? redMarkerImageSrc : blueMarkerImageSrc,
+new kakao.maps.Size(24, 35));}
+var redMarkerImageSrc =
+    "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
+var blueMarkerImageSrc =
+    "https://t1.daumcdn.net/mapjsapi/images/2x/marker.png";
+
+
+var customMarkerImageSrc = "https://t1.daumcdn.net/mapjsapi/images/2x/marker.png";    
+
+function initializeMarkers() {
+data.forEach((coordinates, index) => {
+var marker = new kakao.maps.Marker({
+position: new kakao.maps.LatLng(coordinates[0], coordinates[1]),});
+image: new kakao.maps.MarkerImage(customMarkerImageSrc, new kakao.maps.Size(24, 35)),
+marker.completed = false;
+markers.push(marker);
+
+//이 코드는 각 마커에 대한 번호가 포함된 사용자 정의 오버레이를 생성하고 위치를 설정하여 
+//현재 일련번호 나옴
+const markerOverlay = new kakao.maps.CustomOverlay({
+content: `<div style="font-size: 25px; color: white; padding: 1px 3px; background-color: black;">${coordinates[2]}</div>`,
+position: marker.getPosition(),
+yAnchor: 2.3
+});
+//모든 오버레이들을 배열에 추가해 목록을 만들어 관리를 용이하게 합니다.
+markerOverlays.push(markerOverlay);
+//앞에서 설정한 오버레이 position 속성에 따라 지도에 나오게 합니다.
+markerOverlay.setMap(map);
+
+//지도의 마커에 "click" 이벤트 리스너를 추가하는 기능을 수행합니다. 
+//사용자가 마커를 클릭하면 실행되는 이벤트 콜백 함수 내에서 다음 작업이 이루어집니다:
+kakao.maps.event.addListener(marker, "click", function () {
+var content = `<div style="padding:5px;">일련번호: 
+${data[index][2]}<br><button onclick="toggleMarkerStatus(${index});">${
+marker.completed ? "용수확인 취소" : "용수확인 완료"}</button></div>`;
+
+// 마커를 클릭했을때 오버레이 표시
+var infowindow = new kakao.maps.InfoWindow({
+content: content,});
+
+// 윈포윈도우가 1개만 켜지도록 설정
+if (currInfowindow) {
+currInfowindow.close();}
+currInfowindow = infowindow;
+
+// 바닥을 클릭해도 윈포윈도우 꺼지도록 설정
+kakao.maps.event.addListener(map, "click", function () {
+    if (currInfowindow) {
+        currInfowindow.close();
+        currInfowindow = null;}});
+
+infowindow.open(map, marker);});});}
+
+//특정 마커의 상태를 전환하고 그에 따라 마커의 이미지를 변경한 후, 
+//현재 열려있는 인포윈도우를 닫는 기능을 수행합니다. 
+//함수는 다음과 같은 작업을 거칩니다:
+function toggleMarkerStatus(index) {
+var marker = markers[index];
+marker.completed = !marker.completed;
+marker.setImage(getMarkerImage(marker.completed ? "red" : "blue"));
+currInfowindow.close();}
+
+function initializeCurrentPositionMarker() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(function (position) {
+const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+const currentPositionMarker = new kakao.maps.Marker({
+position: currentPosition,
+// 현재좌표 마커 이미지
+image: new kakao.maps.MarkerImage(
+'https://lh3.googleusercontent.com/fife/APg5EOZbT5bg_EfK03jJ4eWGiaDUk1kcJn3DiCZ2sVT2uD-kZ060luW1q7Uqm4tS2Rakof3FPlHi7W4Vjsu5rhmtsPjaeCanpKynCL0COi6TqsaS1i09ez2G2Od1FyacItmxOYZKrx_X5gcUXS82VGMv0VGI569JD6pYy6RX3YPlSu35b8m7DUpNTUkcz4Hl64y5MJr_7K1Fd-wQtfs2rZlIF25aPXzPtbEI-Z6UXe2BWlw8ikYo3x4MBKw7ae7PMn5BsAUhcAwN0zyh1O8RvSbEj80PBo0-ApDoholWDFv_OCM1IyhS2-GNooo1WEOlCtpN0VHMEtrH8E_wydsVkXuJPqkaNFw-lzzc4iAx4fRnlkWsDEEc8LbCHgdD3DiWOj2RHTzFl9zhcsBVa0DJO58KuubyDPSY-JnMKVVr2rIRINWoDWLe_YnMhV_ArfbAaQLQt1cZz_0cbOjYysHWMlKapn8KTvQpeRh4qVt57XRBfkGVC2OpxEecvqtZnbJXp1niongkTlQqGf7huNMWS4VttpbSvdSVxbre2C1pom0D7YYyV4NedtC3ma0yoPCrnlpaY87FI9z024HBkUOhCq8T7Sy-m9I4Gg1v2cHocdUI8vUlziEJApSgGJvd_-fJa1arukH1mjE3hcblmAza-u5-PG6YyZr3e8cQ6xj0nDQ41_MQePCyFr1ZKC12DKiXOgAqhGeudMlKRwRNBlYWZ_qAz2EZaSTXZ7yAIGbfAQHk8U6Rj9Fl832AnATQr3Wkdqpi_kL2nd0TI23DALSL2T4fx3kWBbrj5lxxHSZVlwZt8xcpOxlfkQ24DQ49sEMLKJBDEiiipzswsp_eCBAaZAi2IleTEhFALmLhbkYFcQwUihLgjLfxXT9d8WQZAA3y77g_QhhI7n6h1oeJHiXOrg651rfZ8wbCcUlkED1qSfg9grh_qzk8LQW1_OMMRnLz23B7qt2kTGjnJx_6uwGMr7WXP1kA94valhjRIyElIEyH63EssuR6p1vk3wBiwodVbWjrUOBJn35P27D7dLvrDKULapcbtlnuVXOaSVUALbBQY-9WAbk6UCNGxCIQ72B5bl1rAla5xOkhXsWv0Sjkvg2Sgn84x8xES353uqgAluYlLWW33OuPSfJoNNIJpalo9q5_JK5SqVpicPJggFq_I3ksZD4jsIpFkxPhXbmUbJbvkyPZM6uuZXMPqHIiqBKud0LEyc8v9HzKUl3ZrAFb2LgkfYS9rYIACoeYRjKiggfrsDkwl6vlxrpHlAcmF5IWkEuASEaYuDi1hYqtr4bDSXO5j1hGSQZ1MbR-mVwJFD1ZM4jcnP5T-dTMfUB0lCWqO_jkXuUhSeUzPhOsGKe8l0jRp7E7peJYIJPPOjFvs_omI2E_qDdrBwa8Z06WpdNq9IIV_M2cfGyVqcmlcYnEzN70rkBwBKef0Zy0rJUVFyIkyetBK9mFedOB_MOWxel0yKm_Tn8sO6zwj5OKAx23UNi0tgUjWAUKGkln42iiLmsAO2dGzIz8A4AQsEvISY5n3PUR9KlCdBM6=w1920-h892',
+new kakao.maps.Size(60, 60),
+{offset: new kakao.maps.Point(12, 12),}),});
+currentPositionMarker.setMap(map);
+watchCurrentPosition(currentPositionMarker);});
+} else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // 사용자의 현재 위치를 지속적으로 파악하고 전달받은 마커의 위치를 변경시키는 함수입니다.
+// function watchCurrentPosition(marker) {
+// if (navigator.geolocation) {
+// navigator.geolocation.watchPosition(function (position) {
+// const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+// marker.setPosition(currentPosition);});
+// } else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // '내 위치 찾기' 버튼을 클릭하면 지도의 중심을 사용자의 현재 위치로 이동시키는 함수입니다.
+// function moveToCurrentLocation() {
+// if (navigator.geolocation) {
+// navigator.geolocation.getCurrentPosition(function (position) {
+// var currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+// map.setCenter(currentPosition);});
+// } else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // 현재 위치 마커를 초기화하고 지도에 표시합니다.
+// initializeCurrentPositionMarker();
+
+// // '내 위치 찾기' 버튼에 이벤트 리스너를 추가합니다.
+// document.getElementById("current-location-marker")
+// .addEventListener("click", moveToCurrentLocation);
+
+	
+</script>
+</body>
+</html>

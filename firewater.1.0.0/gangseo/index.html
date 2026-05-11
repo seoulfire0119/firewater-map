@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>서울소방 용수지도</title>
+  <link rel="icon" href="data:,">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, 'Noto Sans KR', sans-serif; }
+  #map { width: 100%; height: 100vh; }
+
+  #top-controls {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 10; width: 92%; max-width: 580px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .row { display: flex; gap: 8px; }
+  #top-controls select {
+    flex: 1; padding: 10px 8px; font-size: 14px;
+    border: none; border-radius: 10px; background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer;
+  }
+  #search-row {
+    display: flex; background: white; border-radius: 50px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25); overflow: hidden;
+  }
+  #search-row input {
+    flex: 1; border: none; padding: 11px 16px; font-size: 14px; outline: none;
+  }
+  #searchBtn {
+    padding: 0 20px; background: #2ab56f; color: white;
+    border: none; cursor: pointer; font-size: 14px; font-weight: bold;
+  }
+
+  #bottom-controls {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 10; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .map-btn {
+    padding: 11px 18px; background: #2ab56f; color: white;
+    border: none; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .map-btn.red  { background: #e74c3c; }
+  .map-btn.blue { background: #3498db; }
+  #result-count {
+    padding: 6px 14px; background: rgba(0,0,0,.65); color: white;
+    border-radius: 20px; font-size: 13px; white-space: nowrap;
+  }
+
+  #login-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 100;
+    justify-content: center; align-items: center;
+  }
+  #login-box {
+    background: white; border-radius: 16px; padding: 32px 28px; width: 320px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+  }
+  .auth-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 4px; }
+  .auth-tab {
+    flex: 1; padding: 10px; background: none; border: none; cursor: pointer;
+    font-size: 14px; color: #888; font-weight: 500;
+  }
+  .auth-tab.active { color: #2ab56f; border-bottom: 2px solid #2ab56f; margin-bottom: -2px; }
+  #login-box input {
+    padding: 12px 14px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 14px; outline: none;
+  }
+  #login-box input:focus { border-color: #2ab56f; }
+  #login-submit {
+    padding: 13px; background: #2ab56f; color: white;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: bold;
+  }
+  #login-cancel {
+    padding: 13px; background: #f0f0f0; color: #555;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  #login-error { display: none; color: #e74c3c; font-size: 13px; text-align: center; }
+  #login-success { display: none; color: #2ab56f; font-size: 13px; text-align: center; }
+
+  #loading {
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(0,0,0,.72); color: white;
+    padding: 18px 28px; border-radius: 12px; z-index: 200; font-size: 15px;
+  }
+
+  /* ── 내 용수 목록 모달 ── */
+  #my-list-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 100;
+    justify-content: center; align-items: center;
+  }
+  #my-list-box {
+    background: white; border-radius: 16px; padding: 24px 20px; width: 380px;
+    max-height: 82vh; display: flex; flex-direction: column; gap: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+  }
+  #my-list-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  #my-list-header h3 { font-size: 16px; font-weight: bold; }
+  #my-list-close {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: #aaa; line-height: 1;
+  }
+  #my-list-content { flex: 1; overflow-y: auto; min-height: 60px; }
+  .my-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+  }
+  .my-item:last-child { border-bottom: none; }
+  .my-item-info { flex: 1; line-height: 1.55; }
+  .my-item-info .num { font-weight: bold; font-size: 14px; }
+  .my-item-info .sub { color: #888; font-size: 12px; }
+  .my-item-del {
+    padding: 7px 11px; background: #e74c3c; color: white;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 12px; flex-shrink: 0;
+  }
+  #my-list-footer {
+    display: flex; gap: 8px; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid #eee;
+  }
+  #my-list-footer button { flex: 1; }
+
+  @media (max-width: 480px) {
+    #top-controls { width: 96%; }
+    #top-controls select, #searchBtn, .map-btn { font-size: 12px; }
+    #login-box { width: 290px; padding: 24px 20px; }
+    #my-list-box { width: 92vw; }
+  }
+</style>
+
+<div id="map"></div>
+
+<div id="top-controls">
+  <div class="row">
+    <select id="gu-select">
+      <option value="">-- 소방서 선택 --</option>
+    </select>
+    <select id="center-select">
+      <option value="">-- 센터 선택 --</option>
+    </select>
+  </div>
+  <div id="search-row">
+    <input type="text" id="search" placeholder="용수 번호 또는 주소로 검색">
+    <button id="searchBtn">검색</button>
+  </div>
+</div>
+
+<div id="bottom-controls">
+  <button class="map-btn" id="location-btn">내 위치</button>
+  <button class="map-btn" id="my-list-open-btn" style="display:none;background:#e67e22" onclick="openMyHydrantsList()">내 용수 확인</button>
+  <button class="map-btn blue" id="my-hydrants-btn" style="display:none" onclick="loadMyHydrantsOnMap()">내 용수 불러오기</button>
+  <div id="result-count" style="display:none"></div>
+  <button class="map-btn red" id="logout-btn" style="display:none">로그아웃</button>
+</div>
+
+<div id="login-modal">
+  <div id="login-box">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login"   onclick="switchTab('login')">로그인</button>
+      <button class="auth-tab"        id="tab-signup"  onclick="switchTab('signup')">회원가입</button>
+    </div>
+    <input type="email"    id="login-email"  placeholder="이메일 주소">
+    <input type="password" id="login-pw"     placeholder="비밀번호">
+    <input type="password" id="signup-pw2"   placeholder="비밀번호 확인" style="display:none">
+    <div id="signup-notice" style="display:none;font-size:12px;color:#666;background:#f8f8f8;padding:10px;border-radius:8px;line-height:1.6;">
+      ※ 가입은 <b>서울시 공무원 이메일(@seoul.go.kr)</b>만 가능합니다.<br>
+      가입 후 소화전 용수확인 기록이 실시간 저장됩니다.
+    </div>
+    <div id="login-error"></div>
+    <div id="login-success"></div>
+    <button id="login-submit">로그인</button>
+    <button id="login-cancel">취소</button>
+  </div>
+</div>
+
+<div id="my-list-modal">
+  <div id="my-list-box">
+    <div id="my-list-header">
+      <h3>내 용수 목록</h3>
+      <button id="my-list-close" onclick="document.getElementById('my-list-modal').style.display='none'">✕</button>
+    </div>
+    <div id="my-list-content">
+      <div style="text-align:center;padding:24px;color:#aaa;">로딩 중...</div>
+    </div>
+    <div id="my-list-footer">
+      <button class="map-btn blue" onclick="loadMyHydrantsOnMap();document.getElementById('my-list-modal').style.display='none';">지도에서 보기</button>
+      <button class="map-btn" style="background:#bbb" onclick="document.getElementById('my-list-modal').style.display='none'">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading">소방용수 데이터 로딩 중…</div>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=71a8ee083a3d9e125eb4b031a12e6246&autoload=false"
+  onerror="document.getElementById('map').innerHTML='<div style=padding:40px;font-size:16px;color:red>카카오맵 로드 실패: Kakao Developers 콘솔에서 fire-water-map.web.app 도메인을 등록해 주세요.</div>'">
+</script>
+
+<script>
+if (typeof kakao === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:40px;font-size:16px;color:red">카카오맵 로드 실패: Kakao Developers 콘솔에서 <b>fire-water-map.web.app</b> 도메인을 등록해 주세요.<br><a href="https://developers.kakao.com" target="_blank">→ developers.kakao.com</a></div>';
+  throw new Error('Kakao SDK not loaded');
+}
+
+// ── 소방서·센터 매핑 (서소코드_기준규칙.xlsx 기준) ──────────
+const FIRE_STATIONS = [
+  { code:'71', name:'종로소방서',   lat:37.5732, lng:126.9742, centers:[
+    {code:'71250',name:'현장대응단'},{code:'71251',name:'신교119안전센터'},
+    {code:'71252',name:'종로119안전센터'},{code:'71253',name:'연건119안전센터'},
+    {code:'71254',name:'신영119안전센터'},{code:'71255',name:'숭인119안전센터'}]},
+  { code:'72', name:'중부소방서',   lat:37.5650, lng:127.0154, centers:[
+    {code:'72250',name:'현장대응단'},{code:'72251',name:'을지로119안전센터'},
+    {code:'72252',name:'충무로119안전센터'},{code:'72253',name:'회현119안전센터'},
+    {code:'72254',name:'신당119안전센터'}]},
+  { code:'73', name:'광진소방서',   lat:37.5426, lng:127.0964, centers:[
+    {code:'73250',name:'현장대응단'},{code:'73251',name:'능동119안전센터'},
+    {code:'73252',name:'중곡119안전센터'}]},
+  { code:'74', name:'용산소방서',   lat:37.5309, lng:126.9664, centers:[
+    {code:'74250',name:'현장대응단'},{code:'74251',name:'이태원119안전센터'},
+    {code:'74252',name:'후암119안전센터'},{code:'74253',name:'이촌119안전센터'},
+    {code:'74254',name:'서빙고119안전센터'}]},
+  { code:'75', name:'동대문소방서', lat:37.5753, lng:127.0673, centers:[
+    {code:'75250',name:'현장대응단'},{code:'75251',name:'청량리119안전센터'},
+    {code:'75252',name:'전농119안전센터'},{code:'75253',name:'용두119안전센터'},
+    {code:'75254',name:'휘경119안전센터'}]},
+  { code:'76', name:'영등포소방서', lat:37.5224, lng:126.8874, centers:[
+    {code:'76250',name:'현장대응단'},{code:'76251',name:'여의도119안전센터'},
+    {code:'76252',name:'당산119안전센터'},{code:'76253',name:'대림119안전센터'},
+    {code:'76254',name:'신길119안전센터'}]},
+  { code:'77', name:'성북소방서',   lat:37.6108, lng:127.0330, centers:[
+    {code:'77250',name:'현장대응단'},{code:'77251',name:'돈암119안전센터'},
+    {code:'77252',name:'갈음119안전센터'},{code:'77253',name:'장위119안전센터'}]},
+  { code:'78', name:'은평소방서',   lat:37.6390, lng:126.9318, centers:[
+    {code:'78250',name:'현장대응단'},{code:'78251',name:'녹번119안전센터'},
+    {code:'78252',name:'역촌119안전센터'},{code:'78253',name:'수색119안전센터'}]},
+  { code:'79', name:'강남소방서',   lat:37.5125, lng:127.0532, centers:[
+    {code:'79250',name:'현장대응단'},{code:'79251',name:'영동119안전센터'},
+    {code:'79252',name:'역삼119안전센터'},{code:'79253',name:'수서119안전센터'},
+    {code:'79254',name:'개포119안전센터'},{code:'79255',name:'세곡119안전센터'}]},
+  { code:'80', name:'서초소방서',   lat:37.4935, lng:126.9825, centers:[
+    {code:'80250',name:'현장대응단'},{code:'80251',name:'방배119안전센터'},
+    {code:'80252',name:'양재119안전센터'},{code:'80253',name:'서초119안전센터'},
+    {code:'80254',name:'잠원119안전센터'},{code:'80255',name:'우면119안전센터'}]},
+  { code:'81', name:'강서소방서',   lat:37.5599, lng:126.8486, centers:[
+    {code:'81250',name:'현장대응단'},{code:'81251',name:'화곡119안전센터'},
+    {code:'81252',name:'발산119안전센터'},{code:'81253',name:'방화119안전센터'},
+    {code:'81254',name:'개화119안전센터'},{code:'81255',name:'마곡119안전센터'}]},
+  { code:'82', name:'강동소방서',   lat:37.5376, lng:127.1268, centers:[
+    {code:'82250',name:'현장대응단'},{code:'82251',name:'천호119안전센터'},
+    {code:'82252',name:'고덕119안전센터'},{code:'82253',name:'암사119안전센터'},
+    {code:'82254',name:'길동119안전센터'},{code:'82255',name:'강일119안전센터'}]},
+  { code:'83', name:'마포소방서',   lat:37.5491, lng:126.9388, centers:[
+    {code:'83250',name:'현장대응단'},{code:'83251',name:'염리119안전센터'},
+    {code:'83252',name:'서교119안전센터'},{code:'83253',name:'성산119안전센터'},
+    {code:'83254',name:'공덕119안전센터'},{code:'83255',name:'상암119안전센터'}]},
+  { code:'84', name:'도봉소방서',   lat:37.6380, lng:127.0311, centers:[
+    {code:'84250',name:'현장대응단'},{code:'84251',name:'도봉119안전센터'},
+    {code:'84252',name:'창동119안전센터'},{code:'84253',name:'쌍문119안전센터'}]},
+  { code:'85', name:'구로소방서',   lat:37.4995, lng:126.8576, centers:[
+    {code:'85250',name:'현장대응단'},{code:'85251',name:'수궁119안전센터'},
+    {code:'85252',name:'고척119안전센터'},{code:'85253',name:'구로119안전센터'},
+    {code:'85254',name:'신도림119안전센터'},{code:'85255',name:'공단119안전센터'}]},
+  { code:'86', name:'노원소방서',   lat:37.6431, lng:127.0703, centers:[
+    {code:'86250',name:'현장대응단'},{code:'86251',name:'상계119안전센터'},
+    {code:'86252',name:'공릉119안전센터'},{code:'86253',name:'월계119안전센터'},
+    {code:'86254',name:'수락119안전센터'}]},
+  { code:'87', name:'관악소방서',   lat:37.4731, lng:126.9327, centers:[
+    {code:'87250',name:'현장대응단'},{code:'87251',name:'봉천119안전센터'},
+    {code:'87252',name:'신림119안전센터'},{code:'87253',name:'난곡119안전센터'}]},
+  { code:'88', name:'송파소방서',   lat:37.4855, lng:127.1222, centers:[
+    {code:'88250',name:'현장대응단'},{code:'88251',name:'거여119안전센터'},
+    {code:'88252',name:'방이119안전센터'},{code:'88253',name:'잠실119안전센터'},
+    {code:'88254',name:'종합운동장119안전센터'},{code:'88255',name:'가락119안전센터'}]},
+  { code:'89', name:'양천소방서',   lat:37.5285, lng:126.8592, centers:[
+    {code:'89250',name:'현장대응단'},{code:'89251',name:'신정119안전센터'},
+    {code:'89252',name:'목동119안전센터'},{code:'89253',name:'신월119안전센터'},
+    {code:'89254',name:'신트리119안전센터'}]},
+  { code:'90', name:'중랑소방서',   lat:37.6032, lng:127.0959, centers:[
+    {code:'90250',name:'현장대응단'},{code:'90251',name:'면목119안전센터'},
+    {code:'90252',name:'망우119안전센터'},{code:'90253',name:'중화119안전센터'}]},
+  { code:'91', name:'동작소방서',   lat:37.5089, lng:126.9238, centers:[
+    {code:'91250',name:'현장대응단'},{code:'91251',name:'노량진119안전센터'},
+    {code:'91252',name:'상도119안전센터'},{code:'91253',name:'백운119안전센터'}]},
+  { code:'92', name:'서대문소방서', lat:37.5819, lng:126.9329, centers:[
+    {code:'92250',name:'현장대응단'},{code:'92251',name:'북가좌119안전센터'},
+    {code:'92252',name:'홍은119안전센터'},{code:'92253',name:'북아현119안전센터'}]},
+  { code:'93', name:'강북소방서',   lat:37.6380, lng:127.0311, centers:[
+    {code:'93250',name:'현장대응단'},{code:'93251',name:'우이119안전센터'},
+    {code:'93252',name:'미아119안전센터'},{code:'93253',name:'삼각산119안전센터'}]},
+  { code:'94', name:'성동소방서',   lat:37.5635, lng:127.0369, centers:[
+    {code:'94250',name:'현장대응단'},{code:'94251',name:'성수119안전센터'},
+    {code:'94252',name:'왕십리119안전센터'},{code:'94253',name:'금호119안전센터'}]},
+  { code:'95', name:'금천소방서',   lat:37.4600, lng:126.9001, centers:[
+    {code:'95250',name:'현장대응단'},{code:'95251',name:'시흥119안전센터'},
+    {code:'95252',name:'금천119안전센터'}]},
+];
+
+// CD 코드 → 이름 빠른 조회용 맵
+const CODE_TO_STATION = {};  // '81' → '강서소방서'
+const CODE_TO_CENTER  = {};  // '81251' → '화곡119안전센터'
+FIRE_STATIONS.forEach(s => {
+  CODE_TO_STATION[s.code] = s.name;
+  s.centers.forEach(c => { CODE_TO_CENTER[c.code] = c.name; });
+});
+
+// 소방서 드롭다운 동적 생성
+const guSel = document.getElementById('gu-select');
+FIRE_STATIONS.forEach(s => {
+  const opt = document.createElement('option');
+  opt.value = s.code; opt.textContent = s.name;
+  guSel.appendChild(opt);
+});
+
+const MARKER_BLUE = 'https://t1.daumcdn.net/localimg/localimages/07/2018/pc/img/marker_spot.png';
+const MARKER_RED  = 'image/지상식 소화전1.png';
+
+// ── Firebase ─────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey:            "AIzaSyBdoXaUJz27J1zJ6CFuk7_xBWJCRGo0B4M",
+  authDomain:        "fire-water-map.firebaseapp.com",
+  projectId:         "fire-water-map",
+  storageBucket:     "fire-water-map.firebasestorage.app",
+  messagingSenderId: "879331522326",
+  appId:             "1:879331522326:web:823f9b62ac6065ad0a8237"
+});
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── 전역 상태 ─────────────────────────────────────────────
+let allData       = null;
+let statuses      = {};
+let currentUser   = null;
+let pendingId     = null;
+let openInfoWin   = null;
+let mapInstance   = null;
+let activeMarkers = [];
+let activeOverlays= [];
+let activeDataMap = new Map();
+let myHydrantIds  = new Set();
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  document.getElementById('logout-btn').style.display        = user ? 'block' : 'none';
+  document.getElementById('my-hydrants-btn').style.display   = user ? 'block' : 'none';
+  document.getElementById('my-list-open-btn').style.display  = user ? 'block' : 'none';
+  if (user) { loadStatusesFromFirestore(); loadMyHydrantsFromFirestore(); }
+  else { myHydrantIds.clear(); }
+});
+
+// ── data.json 백그라운드 로드 ─────────────────────────────
+function startDataLoad() {
+  document.getElementById('loading').style.display = 'block';
+  fetch('./data.json')
+    .then(r => r.json())
+    .then(rows => {
+      allData = rows;
+      document.getElementById('loading').style.display = 'none';
+      showInitial();
+    })
+    .catch(e => {
+      document.getElementById('loading').style.display = 'none';
+      console.error('data.json 로드 실패:', e);
+    });
+}
+
+// ── Firestore ─────────────────────────────────────────────
+function loadStatusesFromFirestore() {
+  db.collection('markerStatus').get()
+    .then(snap => {
+      snap.forEach(doc => { statuses[doc.id] = doc.data().status; });
+      recolorActiveMarkers();
+    })
+    .catch(e => console.warn('Firestore 로드 실패:', e));
+}
+
+function saveStatusToFirestore(id, status) {
+  db.collection('markerStatus').doc(String(id)).set({
+    status, updatedBy: currentUser.email,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e => console.warn('Firestore 저장 실패:', e));
+}
+
+// ── 내 용수 ───────────────────────────────────────────────
+function loadMyHydrantsFromFirestore() {
+  db.collection('myHydrants')
+    .where('userId', '==', currentUser.uid)
+    .get()
+    .then(snap => {
+      myHydrantIds.clear();
+      snap.forEach(doc => { myHydrantIds.add(String(doc.data().hydrantId)); });
+    })
+    .catch(e => console.warn('내 용수 로드 실패:', e));
+}
+
+window.handleMyHydrant = function(id) {
+  if (!currentUser) { pendingId = id; showLoginModal(); return; }
+  const docId = currentUser.uid + '_' + id;
+  if (myHydrantIds.has(String(id))) {
+    db.collection('myHydrants').doc(docId).delete()
+      .then(() => {
+        myHydrantIds.delete(String(id));
+        if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+      })
+      .catch(e => alert('내 용수 해제 실패: ' + e.message));
+  } else {
+    const hydrant = allData ? allData.find(d => String(d.id) === String(id)) : null;
+    if (!hydrant) { alert('용수 데이터를 찾을 수 없습니다.'); return; }
+    db.collection('myHydrants').doc(docId).set({
+      userId: currentUser.uid,
+      hydrantId: String(hydrant.id),
+      lat: hydrant.lat, lng: hydrant.lng,
+      addr: hydrant.addr || '', type: hydrant.type || '', cd: hydrant.cd || '',
+      registeredAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      myHydrantIds.add(String(id));
+      if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+    }).catch(e => alert('내 용수 등록 실패: ' + e.message));
+  }
+};
+
+window.loadMyHydrantsOnMap = function() {
+  if (!currentUser) { showLoginModal(); return; }
+  db.collection('myHydrants')
+    .where('userId', '==', currentUser.uid)
+    .get()
+    .then(snap => {
+      const items = [];
+      snap.forEach(doc => {
+        const d = doc.data();
+        items.push({ id: d.hydrantId, lat: d.lat, lng: d.lng, addr: d.addr, type: d.type, cd: d.cd || '' });
+      });
+      if (items.length === 0) { alert('등록된 내 용수가 없습니다.'); return; }
+      showResults(items);
+    })
+    .catch(e => alert('내 용수 불러오기 실패: ' + e.message));
+};
+
+// ── 내 용수 목록 모달 ─────────────────────────────────────
+window.openMyHydrantsList = function() {
+  if (!currentUser) { showLoginModal(); return; }
+  document.getElementById('my-list-modal').style.display = 'flex';
+  renderMyList();
+};
+
+function renderMyList() {
+  const content = document.getElementById('my-list-content');
+  content.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa;">로딩 중...</div>';
+  db.collection('myHydrants')
+    .where('userId', '==', currentUser.uid)
+    .get()
+    .then(snap => {
+      if (snap.empty) {
+        content.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa;">등록된 내 용수가 없습니다.</div>';
+        return;
+      }
+      const rows = [];
+      snap.forEach(doc => { rows.push(doc.data()); });
+      content.innerHTML = rows.map(d => {
+        const station = CODE_TO_STATION[(d.cd||'').slice(0,2)] || '';
+        const center  = CODE_TO_CENTER[d.cd] || '';
+        return `
+          <div class="my-item">
+            <div class="my-item-info">
+              <div class="num">No. ${d.hydrantId}</div>
+              <div class="sub">${station}${center ? ' &gt; ' + center : ''}</div>
+              <div class="sub">${d.type || '-'} | ${d.addr || '-'}</div>
+            </div>
+            <button class="my-item-del" onclick="deleteMyHydrant('${d.hydrantId}')">삭제</button>
+          </div>`;
+      }).join('');
+    })
+    .catch(e => {
+      content.innerHTML = '<div style="text-align:center;padding:16px;color:#e74c3c;">로드 실패</div>';
+    });
+}
+
+window.deleteMyHydrant = function(id) {
+  if (!currentUser) return;
+  if (!confirm('No.' + id + ' 을(를) 내 용수에서 삭제하시겠습니까?')) return;
+  const docId = currentUser.uid + '_' + id;
+  db.collection('myHydrants').doc(docId).delete()
+    .then(() => {
+      myHydrantIds.delete(String(id));
+      renderMyList();
+    })
+    .catch(e => alert('삭제 실패: ' + e.message));
+};
+
+function makeImg(src) {
+  return new kakao.maps.MarkerImage(src, new kakao.maps.Size(36, 36));
+}
+
+function recolorActiveMarkers() {
+  activeDataMap.forEach((d, idx) => {
+    activeMarkers[idx]?.setImage(makeImg(statuses[d.id] === 'done' ? MARKER_RED : MARKER_BLUE));
+  });
+}
+
+// ── 마커 생성 (결과에 한해서만) ───────────────────────────
+function clearMarkers() {
+  activeMarkers.forEach(m => m.setMap(null));
+  activeOverlays.forEach(o => o.setMap(null));
+  activeMarkers = []; activeOverlays = [];
+  activeDataMap.clear();
+  if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+}
+
+function showResults(items) {
+  clearMarkers();
+  const countEl = document.getElementById('result-count');
+  if (items.length === 0) {
+    countEl.textContent = '결과 없음'; countEl.style.display = 'block'; return;
+  }
+
+  items.forEach((d, idx) => {
+    const pos  = new kakao.maps.LatLng(d.lat, d.lng);
+    const done = statuses[d.id] === 'done';
+    const stationName = CODE_TO_STATION[d.cd.slice(0,2)] || '';
+    const centerName  = CODE_TO_CENTER[d.cd] || '';
+
+    const marker = new kakao.maps.Marker({
+      position: pos,
+      image: makeImg(done ? MARKER_RED : MARKER_BLUE)
+    });
+    marker.setMap(mapInstance);
+    activeMarkers.push(marker);
+    activeDataMap.set(idx, d);
+
+    const overlay = new kakao.maps.CustomOverlay({
+      content: `<div style="font-size:11px;color:#fff;background:rgba(0,0,0,.7);padding:1px 4px;border-radius:3px;white-space:nowrap;">${d.id}</div>`,
+      position: pos, yAnchor: 2.8
+    });
+    overlay.setMap(mapInstance);
+    activeOverlays.push(overlay);
+
+    kakao.maps.event.addListener(marker, 'click', () => {
+      if (openInfoWin) openInfoWin.close();
+      const isDone = statuses[d.id] === 'done';
+      const isMine = myHydrantIds.has(String(d.id));
+      const myBtn  = currentUser ? `
+        <button onclick="handleMyHydrant('${d.id}')" style="
+          margin-top:4px;width:100%;padding:9px;
+          background:${isMine ? '#e67e22' : '#3498db'};
+          color:#fff;border:none;border-radius:6px;
+          cursor:pointer;font-size:13px;font-weight:bold;">
+          ${isMine ? '★ 내 용수 해제' : '☆ 내 용수 등록'}
+        </button>` : '';
+      const iw = new kakao.maps.InfoWindow({
+        content: `
+          <div style="padding:14px;min-width:200px;font-size:14px;line-height:1.9;">
+            <b>용수번호:</b> ${d.id}<br>
+            <b>소방서:</b> ${stationName}<br>
+            <b>센터:</b> ${centerName}<br>
+            <b>주소:</b> ${d.addr || '-'}<br>
+            <b>종류:</b> ${d.type || '-'}<br>
+            <button onclick="handleToggle('${d.id}')" style="
+              margin-top:8px;width:100%;padding:9px;
+              background:${isDone ? '#e74c3c' : '#2ab56f'};
+              color:#fff;border:none;border-radius:6px;
+              cursor:pointer;font-size:13px;font-weight:bold;">
+              ${isDone ? '✕ 용수확인 취소' : '✓ 용수확인 완료'}
+            </button>
+            ${myBtn}
+          </div>`
+      });
+      iw.open(mapInstance, marker);
+      openInfoWin = iw;
+    });
+  });
+
+  countEl.textContent = `${items.length}개`;
+  countEl.style.display = 'block';
+  mapInstance.panTo(new kakao.maps.LatLng(items[0].lat, items[0].lng));
+}
+
+function showInitial() {
+  if (!allData || !mapInstance) return;
+  showResults(allData.slice(0, 10));
+}
+
+// ── 용수확인 토글 ─────────────────────────────────────────
+window.handleToggle = function(id) {
+  if (!currentUser) { pendingId = id; showLoginModal(); }
+  else toggleStatus(id);
+};
+
+function toggleStatus(id) {
+  statuses[id] = statuses[id] !== 'done' ? 'done' : 'default';
+  recolorActiveMarkers();
+  if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+  saveStatusToFirestore(id, statuses[id]);
+}
+
+// ── 로그인/회원가입 모달 ──────────────────────────────────
+let authMode = 'login'; // 'login' | 'signup'
+
+window.switchTab = function(mode) {
+  authMode = mode;
+  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+  document.getElementById('signup-pw2').style.display    = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('signup-notice').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('login-submit').textContent    = mode === 'login' ? '로그인' : '회원가입';
+  document.getElementById('login-error').style.display   = 'none';
+  document.getElementById('login-success').style.display = 'none';
+};
+
+function showLoginModal() {
+  authMode = 'login';
+  switchTab('login');
+  document.getElementById('login-email').value  = '';
+  document.getElementById('login-pw').value     = '';
+  document.getElementById('signup-pw2').value   = '';
+  document.getElementById('login-modal').style.display = 'flex';
+}
+
+function showMsg(type, text) {
+  const errEl = document.getElementById('login-error');
+  const okEl  = document.getElementById('login-success');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+  if (type === 'error') { errEl.textContent = text; errEl.style.display = 'block'; }
+  else                  { okEl.textContent  = text; okEl.style.display  = 'block'; }
+}
+
+document.getElementById('login-submit').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const pw2   = document.getElementById('signup-pw2').value;
+
+  if (!email || !pw) { showMsg('error', '이메일과 비밀번호를 입력해 주세요.'); return; }
+
+  if (authMode === 'signup') {
+    if (!email.endsWith('@seoul.go.kr')) {
+      showMsg('error', '서울시 공무원 이메일(@seoul.go.kr)만 가입 가능합니다.');
+      return;
+    }
+    if (pw !== pw2) { showMsg('error', '비밀번호가 일치하지 않습니다.'); return; }
+    if (pw.length < 6) { showMsg('error', '비밀번호는 6자 이상이어야 합니다.'); return; }
+    try {
+      await auth.createUserWithEmailAndPassword(email, pw);
+      document.getElementById('login-modal').style.display = 'none';
+      if (pendingId !== null) { toggleStatus(pendingId); pendingId = null; }
+    } catch (e) {
+      const msg = e.code === 'auth/email-already-in-use' ? '이미 사용 중인 이메일입니다.'
+                : e.code === 'auth/invalid-email'        ? '이메일 형식이 올바르지 않습니다.'
+                : '회원가입 실패: ' + e.message;
+      showMsg('error', msg);
+    }
+  } else {
+    try {
+      await auth.signInWithEmailAndPassword(email, pw);
+      document.getElementById('login-modal').style.display = 'none';
+      if (pendingId !== null) { toggleStatus(pendingId); pendingId = null; }
+    } catch (e) {
+      const msg = e.code === 'auth/user-not-found'  ? '등록되지 않은 이메일입니다.'
+                : e.code === 'auth/wrong-password'  ? '비밀번호가 올바르지 않습니다.'
+                : e.code === 'auth/invalid-email'   ? '이메일 형식이 올바르지 않습니다.'
+                : '로그인 실패: ' + e.message;
+      showMsg('error', msg);
+    }
+  }
+});
+
+document.getElementById('login-cancel').addEventListener('click', () => {
+  document.getElementById('login-modal').style.display = 'none';
+  pendingId = null;
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
+
+// ── 카카오맵 초기화 ───────────────────────────────────────
+kakao.maps.load(() => {
+  mapInstance = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(37.5502, 126.9786),
+    level: 8
+  });
+
+  kakao.maps.event.addListener(mapInstance, 'click', () => {
+    if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+  });
+
+  startDataLoad();
+
+  const centerSel = document.getElementById('center-select');
+
+  // 소방서 선택 → 센터 드롭다운 갱신 + 지도 이동
+  guSel.addEventListener('change', () => {
+    const station = FIRE_STATIONS.find(s => s.code === guSel.value);
+    centerSel.innerHTML = '<option value="">-- 센터 선택 --</option>';
+    if (station) {
+      station.centers.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.code; opt.textContent = c.name;
+        centerSel.appendChild(opt);
+      });
+      mapInstance.setCenter(new kakao.maps.LatLng(station.lat, station.lng));
+      mapInstance.setLevel(6);
+    }
+    runSearch();
+  });
+
+  centerSel.addEventListener('change', runSearch);
+
+  document.getElementById('searchBtn').addEventListener('click', runSearch);
+  document.getElementById('search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+
+  let locationOverlay = null;
+
+  document.getElementById('location-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) { alert('위치 정보를 사용할 수 없습니다.'); return; }
+    navigator.geolocation.getCurrentPosition(p => {
+      const pos = new kakao.maps.LatLng(p.coords.latitude, p.coords.longitude);
+
+      if (locationOverlay) locationOverlay.setMap(null);
+      locationOverlay = new kakao.maps.CustomOverlay({
+        position: pos,
+        content: `<div style="
+          width:22px;height:22px;
+          background:#3b82f6;
+          border:3px solid white;
+          border-radius:50%;
+          box-shadow:0 2px 8px rgba(0,0,0,.5);
+          cursor:default;
+        "></div>`,
+        zIndex: 999,
+        yAnchor: 0.5,
+        xAnchor: 0.5
+      });
+      locationOverlay.setMap(mapInstance);
+      mapInstance.setCenter(pos);
+    }, () => alert('현재 위치를 가져올 수 없습니다.'));
+  });
+
+  function runSearch() {
+    if (!allData) { alert('데이터 로딩 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+
+    const stationCode = guSel.value;       // e.g. '81'
+    const centerCode  = centerSel.value;   // e.g. '81251'
+    const query       = document.getElementById('search').value.trim();
+
+    let results = allData;
+
+    // CD 코드로 정확한 필터링
+    if (centerCode) {
+      results = results.filter(d => d.cd === centerCode);
+    } else if (stationCode) {
+      results = results.filter(d => d.cd.startsWith(stationCode));
+    }
+
+    // 번호·주소 텍스트 검색
+    if (query) {
+      results = results.filter(d =>
+        String(d.id).startsWith(query) || (d.addr || '').includes(query)
+      );
+    }
+
+    showResults(results.slice(0, 300));
+  }
+});
+</script>
+</body>
+</html>

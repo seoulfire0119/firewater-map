@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>서울소방 용수지도</title>
+  <link rel="icon" href="data:,">
+
+  <!-- Firebase compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, 'Noto Sans KR', sans-serif; }
+
+  #map { width: 100%; height: 100vh; }
+
+  /* ── 상단 컨트롤 ── */
+  #top-controls {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 92%;
+    max-width: 580px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .row { display: flex; gap: 8px; }
+
+  #top-controls select {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 14px;
+    border: none;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    cursor: pointer;
+  }
+
+  #search-row {
+    display: flex;
+    background: white;
+    border-radius: 50px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    overflow: hidden;
+  }
+
+  #search-row input {
+    flex: 1;
+    border: none;
+    padding: 11px 16px;
+    font-size: 14px;
+    outline: none;
+  }
+
+  #searchBtn {
+    padding: 0 20px;
+    background: #2ab56f;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* ── 하단 버튼 ── */
+  #bottom-controls {
+    position: fixed;
+    bottom: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+
+  .map-btn {
+    padding: 11px 18px;
+    background: #2ab56f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+
+  .map-btn.red { background: #e74c3c; }
+
+  /* ── 로그인 모달 ── */
+  #login-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #login-box {
+    background: white;
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+  }
+
+  #login-box h3 {
+    text-align: center;
+    font-size: 18px;
+    color: #222;
+  }
+
+  #login-box input {
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+
+  #login-box input:focus { border-color: #2ab56f; }
+
+  #login-submit {
+    padding: 13px;
+    background: #2ab56f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+  }
+
+  #login-cancel {
+    padding: 13px;
+    background: #f0f0f0;
+    color: #555;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  #login-error {
+    display: none;
+    color: #e74c3c;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* ── 로딩 ── */
+  #loading {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(0,0,0,.72);
+    color: white;
+    padding: 18px 28px;
+    border-radius: 12px;
+    z-index: 200;
+    font-size: 15px;
+  }
+
+  /* ── 하단 광고바 ── */
+  #ad-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px;
+    background: rgba(0,0,0,.6);
+    color: white;
+    font-size: 13px;
+    text-align: center;
+    z-index: 5;
+  }
+
+  /* ── 반응형 ── */
+  @media (max-width: 480px) {
+    #top-controls { width: 96%; }
+    #top-controls select, #searchBtn, .map-btn { font-size: 12px; }
+    #login-box { width: 290px; padding: 24px 20px; }
+  }
+</style>
+
+<!-- 지도 -->
+<div id="map"></div>
+
+<!-- 상단: 지역·센터 선택 + 번호 검색 -->
+<div id="top-controls">
+  <div class="row">
+    <select id="gu-select">
+      <option value="">지역구 선택</option>
+      <option value="강서">강서구</option>
+      <option value="양천">양천구</option>
+    </select>
+    <select id="center-select">
+      <option value="">소방서·센터 선택</option>
+    </select>
+  </div>
+  <div id="search-row">
+    <input type="text" id="search" placeholder="용수 번호 또는 주소로 검색">
+    <button id="searchBtn">검색</button>
+  </div>
+</div>
+
+<!-- 하단: 내위치 + 로그아웃 -->
+<div id="bottom-controls">
+  <button class="map-btn" id="location-btn">내 위치</button>
+  <button class="map-btn red" id="logout-btn" style="display:none">로그아웃</button>
+</div>
+
+<!-- 로그인 모달 (마커 클릭 → 용수확인 시 표시) -->
+<div id="login-modal">
+  <div id="login-box">
+    <h3>🔒 로그인</h3>
+    <input type="email"    id="login-email" placeholder="이메일 주소">
+    <input type="password" id="login-pw"    placeholder="비밀번호">
+    <div id="login-error">이메일 또는 비밀번호가 올바르지 않습니다.</div>
+    <button id="login-submit">로그인</button>
+    <button id="login-cancel">취소</button>
+  </div>
+</div>
+
+<!-- 로딩 표시 -->
+<div id="loading">소방용수 데이터 로딩 중…</div>
+
+<!-- 하단 광고 -->
+<div id="ad-bar">서울소방의 미래 chatGPT 연구회</div>
+
+<!-- 카카오맵 (autoload=false → kakao.maps.load() 로 수동 초기화) -->
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=71a8ee083a3d9e125eb4b031a12e6246&autoload=false"
+  onerror="document.getElementById('map').innerHTML='<div style=padding:40px;font-size:16px;color:red>카카오맵 로드 실패: Kakao Developers 콘솔에서 fire-water-map.web.app 도메인을 등록해 주세요.</div>'">
+</script>
+
+<script>
+if (typeof kakao === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:40px;font-size:16px;color:red">카카오맵 로드 실패: Kakao Developers 콘솔에서 <b>fire-water-map.web.app</b> 도메인을 등록해 주세요.<br><a href="https://developers.kakao.com" target="_blank">→ developers.kakao.com</a></div>';
+  throw new Error('Kakao SDK not loaded');
+}
+// ════════════════════════════════════════════════════════════
+//  설정
+// ════════════════════════════════════════════════════════════
+
+// 구 → 센터 목록
+const CENTERS_BY_GU = {
+  '강서': ['발산119안전센터','현장대응단','방화119안전센터','개화119안전센터','화곡119안전센터'],
+  '양천': ['신월119안전센터','신트리119안전센터','신정119안전센터','목동119안전센터','현장대응단']
+};
+
+// 구 → 지도 기본 중심 좌표
+const GU_CENTER = {
+  '강서': { lat: 37.5502, lng: 126.872 },
+  '양천': { lat: 37.5168, lng: 126.8665 }
+};
+
+// 마커 이미지
+const MARKER_BLUE = 'http://t1.daumcdn.net/localimg/localimages/07/2018/pc/img/marker_spot.png';
+const MARKER_RED  = 'image/지상식 소화전1.png';
+
+// ════════════════════════════════════════════════════════════
+//  Firebase 초기화
+// ════════════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:            "AIzaSyBdoXaUJz27J1zJ6CFuk7_xBWJCRGo0B4M",
+  authDomain:        "fire-water-map.firebaseapp.com",
+  projectId:         "fire-water-map",
+  storageBucket:     "fire-water-map.firebasestorage.app",
+  messagingSenderId: "879331522326",
+  appId:             "1:879331522326:web:823f9b62ac6065ad0a8237"
+});
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ════════════════════════════════════════════════════════════
+//  전역 상태
+// ════════════════════════════════════════════════════════════
+let allData      = [];
+let kakaoMarkers = [];
+let kakaoOverlays= [];
+let statuses     = {};
+let currentUser  = null;
+let pendingIdx   = null;
+let openInfoWin  = null;
+
+// ════════════════════════════════════════════════════════════
+//  Firebase 인증 상태 감지
+// ════════════════════════════════════════════════════════════
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  document.getElementById('logout-btn').style.display = user ? 'block' : 'none';
+  if (user && kakaoMarkers.length > 0) applyStatusColors();
+});
+
+// ════════════════════════════════════════════════════════════
+//  정적 data.json 로드 (fetch-data.js 로 사전 생성)
+// ════════════════════════════════════════════════════════════
+async function fetchSeoulData() {
+  const res = await fetch('./data.json');
+  if (!res.ok) throw new Error(`data.json 로드 실패 (HTTP ${res.status})`);
+  const rows = await res.json();
+  return rows.map((r, i) => ({
+    lat:     r.lat,
+    lng:     r.lng,
+    id:      r.id,
+    address: r.addr,
+    type:    r.type,
+    cd:      r.cd,
+    _i:      i
+  }));
+}
+
+// ════════════════════════════════════════════════════════════
+//  Firestore: 용수확인 상태 저장·불러오기
+// ════════════════════════════════════════════════════════════
+async function loadStatusesFromFirestore() {
+  try {
+    const snap = await db.collection('markerStatus').get();
+    snap.forEach(doc => { statuses[doc.id] = doc.data().status; });
+    applyStatusColors();
+  } catch (e) {
+    console.warn('Firestore 로드 실패:', e);
+  }
+}
+
+function saveStatusToFirestore(id, status) {
+  db.collection('markerStatus').doc(String(id)).set({
+    status,
+    updatedBy: currentUser.email,
+    updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e => console.warn('Firestore 저장 실패:', e));
+}
+
+function applyStatusColors() {
+  allData.forEach((d, i) => {
+    const img = statuses[d.id] === 'done' ? makeImg(MARKER_RED) : makeImg(MARKER_BLUE);
+    kakaoMarkers[i]?.setImage(img);
+  });
+}
+
+function makeImg(src) {
+  return new kakao.maps.MarkerImage(src, new kakao.maps.Size(36, 36));
+}
+
+// ════════════════════════════════════════════════════════════
+//  마커 토글 (용수확인 완료 / 취소)
+// ════════════════════════════════════════════════════════════
+window.handleToggle = function(idx) {
+  if (!currentUser) {
+    pendingIdx = idx;
+    showLoginModal();
+  } else {
+    toggleStatus(idx);
+  }
+};
+
+function toggleStatus(idx) {
+  const d     = allData[idx];
+  const done  = statuses[d.id] !== 'done';
+  statuses[d.id] = done ? 'done' : 'default';
+  kakaoMarkers[idx].setImage(makeImg(done ? MARKER_RED : MARKER_BLUE));
+  if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+  saveStatusToFirestore(d.id, statuses[d.id]);
+}
+
+// ════════════════════════════════════════════════════════════
+//  로그인 모달
+// ════════════════════════════════════════════════════════════
+function showLoginModal() {
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pw').value    = '';
+  document.getElementById('login-modal').style.display = 'flex';
+}
+
+document.getElementById('login-submit').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+    document.getElementById('login-modal').style.display = 'none';
+    if (pendingIdx !== null) { toggleStatus(pendingIdx); pendingIdx = null; }
+  } catch {
+    errEl.style.display = 'block';
+  }
+});
+
+document.getElementById('login-cancel').addEventListener('click', () => {
+  document.getElementById('login-modal').style.display = 'none';
+  pendingIdx = null;
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
+
+// ════════════════════════════════════════════════════════════
+//  카카오맵 초기화
+// ════════════════════════════════════════════════════════════
+kakao.maps.load(async () => {
+
+  const map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(37.5168, 126.8665),  // 양천구 기본 중심
+    level: 6
+  });
+
+  kakao.maps.event.addListener(map, 'click', () => {
+    if (openInfoWin) { openInfoWin.close(); openInfoWin = null; }
+  });
+
+  // ── 데이터 로드 ───────────────────────────────────────
+  document.getElementById('loading').style.display = 'block';
+  try {
+    allData = await fetchSeoulData();
+  } catch (e) {
+    console.error('데이터 로드 실패:', e);
+    alert(`소방용수 데이터를 불러오지 못했습니다.\n\n원인: ${e.message}\n\n확인사항:\n1. 네트워크 연결 확인\n2. HTTP→HTTPS 프록시 설정 (배포 환경)`);
+  }
+  document.getElementById('loading').style.display = 'none';
+
+  // ── 마커 생성 ─────────────────────────────────────────
+  allData.forEach((d, i) => {
+    d._i = i;
+    const pos = new kakao.maps.LatLng(d.lat, d.lng);
+
+    const marker = new kakao.maps.Marker({ position: pos });
+    marker.setImage(makeImg(statuses[d.id] === 'done' ? MARKER_RED : MARKER_BLUE));
+    kakaoMarkers.push(marker);
+
+    const overlay = new kakao.maps.CustomOverlay({
+      content:  `<div style="font-size:11px;color:#fff;background:rgba(0,0,0,.7);padding:1px 4px;border-radius:3px;white-space:nowrap;">${d.id}</div>`,
+      position: pos,
+      yAnchor:  2.8
+    });
+    kakaoOverlays.push(overlay);
+
+    kakao.maps.event.addListener(marker, 'click', () => {
+      if (openInfoWin) openInfoWin.close();
+      const done = statuses[d.id] === 'done';
+      const iw = new kakao.maps.InfoWindow({
+        content: `
+          <div style="padding:14px;min-width:200px;font-size:14px;line-height:1.9;">
+            <b>용수번호:</b> ${d.id}<br>
+            <b>주소:</b> ${d.address || '-'}<br>
+            <b>종류:</b> ${d.type || '-'}<br>
+            <button onclick="handleToggle(${i})" style="
+              margin-top:8px;width:100%;padding:9px;
+              background:${done ? '#e74c3c' : '#2ab56f'};
+              color:#fff;border:none;border-radius:6px;
+              cursor:pointer;font-size:13px;font-weight:bold;">
+              ${done ? '✕ 용수확인 취소' : '✓ 용수확인 완료'}
+            </button>
+          </div>`
+      });
+      iw.open(map, marker);
+      openInfoWin = iw;
+    });
+  });
+
+  if (auth.currentUser) await loadStatusesFromFirestore();
+
+  // ── 기본 표시: 첫 10개 ────────────────────────────────
+  showInitialMarkers();
+
+  // ── 구 선택 시 센터 드롭다운 업데이트 ────────────────
+  const guSel     = document.getElementById('gu-select');
+  const centerSel = document.getElementById('center-select');
+
+  guSel.addEventListener('change', () => {
+    const gu = guSel.value;
+    centerSel.innerHTML = '<option value="">소방서·센터 선택</option>';
+    if (gu && CENTERS_BY_GU[gu]) {
+      CENTERS_BY_GU[gu].forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        centerSel.appendChild(opt);
+      });
+      const gc = GU_CENTER[gu];
+      if (gc) map.setCenter(new kakao.maps.LatLng(gc.lat, gc.lng));
+    }
+    showInitialMarkers();
+  });
+
+  centerSel.addEventListener('change', () => {
+    showInitialMarkers();
+  });
+
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    const gu     = guSel.value;
+    const center = centerSel.value;
+    const q      = document.getElementById('search').value.trim();
+    filterAndShow(gu, center, q);
+  });
+
+  document.getElementById('search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('searchBtn').click();
+  });
+
+  document.getElementById('location-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) { alert('이 브라우저에서 위치 정보를 사용할 수 없습니다.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => map.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude)),
+      ()  => alert('현재 위치를 가져올 수 없습니다. 브라우저 설정을 확인하세요.')
+    );
+  });
+
+  // ── 마커 표시/숨김 함수 ──────────────────────────────
+  function hideAll() {
+    kakaoMarkers.forEach((m, i) => { m.setMap(null); kakaoOverlays[i].setMap(null); });
+  }
+
+  function showMarkerAt(i) {
+    kakaoMarkers[i].setMap(map);
+    kakaoOverlays[i].setMap(map);
+  }
+
+  function showInitialMarkers() {
+    hideAll();
+    allData.slice(0, 10).forEach(d => showMarkerAt(d._i));
+    if (allData.length > 0) map.setCenter(new kakao.maps.LatLng(allData[0].lat, allData[0].lng));
+  }
+
+  function filterAndShow(gu, center, query) {
+    hideAll();
+    const matched = allData.filter(d => {
+      const queryOk = !query || String(d.id).startsWith(query) || (d.address || '').includes(query);
+      return queryOk;
+    });
+    matched.forEach(d => showMarkerAt(d._i));
+    if (matched.length > 0) map.panTo(kakaoMarkers[matched[0]._i].getPosition());
+  }
+
+}); // kakao.maps.load
+</script>
+</body>
+</html>

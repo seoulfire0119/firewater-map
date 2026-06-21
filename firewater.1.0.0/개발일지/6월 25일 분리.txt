@@ -1,0 +1,37 @@
+// function initializeCurrentPositionMarker() {
+// if (navigator.geolocation) {
+// navigator.geolocation.getCurrentPosition(function (position) {
+// const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+// const currentPositionMarker = new kakao.maps.Marker({
+// position: currentPosition,
+// // 현재좌표 마커 이미지
+// image: new kakao.maps.MarkerImage(
+// 'https://lh3.googleusercontent.com/fife/APg5EOZbT5bg_EfK03jJ4eWGiaDUk1kcJn3DiCZ2sVT2uD-kZ060luW1q7Uqm4tS2Rakof3FPlHi7W4Vjsu5rhmtsPjaeCanpKynCL0COi6TqsaS1i09ez2G2Od1FyacItmxOYZKrx_X5gcUXS82VGMv0VGI569JD6pYy6RX3YPlSu35b8m7DUpNTUkcz4Hl64y5MJr_7K1Fd-wQtfs2rZlIF25aPXzPtbEI-Z6UXe2BWlw8ikYo3x4MBKw7ae7PMn5BsAUhcAwN0zyh1O8RvSbEj80PBo0-ApDoholWDFv_OCM1IyhS2-GNooo1WEOlCtpN0VHMEtrH8E_wydsVkXuJPqkaNFw-lzzc4iAx4fRnlkWsDEEc8LbCHgdD3DiWOj2RHTzFl9zhcsBVa0DJO58KuubyDPSY-JnMKVVr2rIRINWoDWLe_YnMhV_ArfbAaQLQt1cZz_0cbOjYysHWMlKapn8KTvQpeRh4qVt57XRBfkGVC2OpxEecvqtZnbJXp1niongkTlQqGf7huNMWS4VttpbSvdSVxbre2C1pom0D7YYyV4NedtC3ma0yoPCrnlpaY87FI9z024HBkUOhCq8T7Sy-m9I4Gg1v2cHocdUI8vUlziEJApSgGJvd_-fJa1arukH1mjE3hcblmAza-u5-PG6YyZr3e8cQ6xj0nDQ41_MQePCyFr1ZKC12DKiXOgAqhGeudMlKRwRNBlYWZ_qAz2EZaSTXZ7yAIGbfAQHk8U6Rj9Fl832AnATQr3Wkdqpi_kL2nd0TI23DALSL2T4fx3kWBbrj5lxxHSZVlwZt8xcpOxlfkQ24DQ49sEMLKJBDEiiipzswsp_eCBAaZAi2IleTEhFALmLhbkYFcQwUihLgjLfxXT9d8WQZAA3y77g_QhhI7n6h1oeJHiXOrg651rfZ8wbCcUlkED1qSfg9grh_qzk8LQW1_OMMRnLz23B7qt2kTGjnJx_6uwGMr7WXP1kA94valhjRIyElIEyH63EssuR6p1vk3wBiwodVbWjrUOBJn35P27D7dLvrDKULapcbtlnuVXOaSVUALbBQY-9WAbk6UCNGxCIQ72B5bl1rAla5xOkhXsWv0Sjkvg2Sgn84x8xES353uqgAluYlLWW33OuPSfJoNNIJpalo9q5_JK5SqVpicPJggFq_I3ksZD4jsIpFkxPhXbmUbJbvkyPZM6uuZXMPqHIiqBKud0LEyc8v9HzKUl3ZrAFb2LgkfYS9rYIACoeYRjKiggfrsDkwl6vlxrpHlAcmF5IWkEuASEaYuDi1hYqtr4bDSXO5j1hGSQZ1MbR-mVwJFD1ZM4jcnP5T-dTMfUB0lCWqO_jkXuUhSeUzPhOsGKe8l0jRp7E7peJYIJPPOjFvs_omI2E_qDdrBwa8Z06WpdNq9IIV_M2cfGyVqcmlcYnEzN70rkBwBKef0Zy0rJUVFyIkyetBK9mFedOB_MOWxel0yKm_Tn8sO6zwj5OKAx23UNi0tgUjWAUKGkln42iiLmsAO2dGzIz8A4AQsEvISY5n3PUR9KlCdBM6=w1920-h892',
+// new kakao.maps.Size(60, 60),
+// {offset: new kakao.maps.Point(12, 12),}),});
+// currentPositionMarker.setMap(map);
+// watchCurrentPosition(currentPositionMarker);});
+// } else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // 사용자의 현재 위치를 지속적으로 파악하고 전달받은 마커의 위치를 변경시키는 함수입니다.
+// function watchCurrentPosition(marker) {
+// if (navigator.geolocation) {
+// navigator.geolocation.watchPosition(function (position) {
+// const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+// marker.setPosition(currentPosition);});
+// } else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // '내 위치 찾기' 버튼을 클릭하면 지도의 중심을 사용자의 현재 위치로 이동시키는 함수입니다.
+// function moveToCurrentLocation() {
+// if (navigator.geolocation) {
+// navigator.geolocation.getCurrentPosition(function (position) {
+// var currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+// map.setCenter(currentPosition);});
+// } else {alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.');}}
+
+// // 현재 위치 마커를 초기화하고 지도에 표시합니다.
+// initializeCurrentPositionMarker();
+
+// // '내 위치 찾기' 버튼에 이벤트 리스너를 추가합니다.
+// document.getElementById("current-location-marker")
+// .addEventListener("click", moveToCurrentLocation);

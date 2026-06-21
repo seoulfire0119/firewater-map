@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <title>서울소방 용수지도</title>
+  <script src="https://kit.fontawesome.com/478feb51b9.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <style>
+    #map {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100vh;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      outline: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .fullscreen {
+      position: absolute;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      background-color: rgb(3, 7, 2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    img {
+      width: 40px;
+      height: 40px;
+    }
+
+    /* 검색창 부분 */
+    input[type="text"] {
+      border-radius: 50px;
+      border: none;
+      width: 100%;
+      padding: 10px;
+      height: 2em
+    }
+
+    input[type="text"]::placeholder {
+      text-align: center;
+      font-size: 1.5em;
+      outline: none;
+    }
+
+
+    #gu-select,
+    #center-select {
+      margin-top: 15px;
+      font-size: 1.2em;
+      padding: 0.5em;
+      width: 100%;
+    }
+
+    .selections-row {
+      margin-bottom: 25px;
+      position: fixed;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+    }
+
+    #search-form {
+  position: fixed;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  border-radius: 25px;
+  display: flex;
+  gap: 10px;
+  padding-left: 10px;
+  border: 1px solid #cccccc;
+  margin-bottom: 15px;
+  align-items: center;
+  width: 80%;
+  z-index: 10;
+}
+
+
+    button#searchBtn {
+      width: 40%;
+      height: 100%;
+      margin-left: -12px;
+      background-color: #2ab56f;
+      color: #ffffff;
+      border-radius: 25px;
+      font-size: 2em;
+    }
+
+    input[type="checkbox"] {
+      width: 25px;
+      height: 25px;
+      vertical-align: middle;
+    }
+
+    button#hide-search-results {
+      border-radius: 25px;
+      margin-bottom: 1rem;
+      width: 40rem;
+      height: 5rem;
+      background-color: #2ab56f;
+      color: #ffffff;
+      font-size: 25px;
+      display: block;
+      bottom: 0%;
+      left: 50%;
+      z-index: 10;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    #reopen-search {
+      position: absolute;
+      top: 1.5%;
+      left: 50%;
+      z-index: 2;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      transform: translate(-50%, 0);
+    }
+
+    #reopen-search button {
+      border: none;
+      width: 300px;
+      padding: 10px;
+      background-color: #2ab56f;
+      color: #ffffff;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 24px;
+      font-weight: 500;
+      border-radius: 4px;
+      text-align: center;
+      transition: background-color 0.3s ease;
+    }
+
+    #reopen-search button:hover {
+      background-color: #12a600;
+    }
+
+    #bottom {
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
+      z-index: 2;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      transform: translate(-50%, 0);
+      gap: 5px;
+    }
+
+    #current-location-marker {
+      border: none;
+      width: 150px;
+      height: 50px;
+      background-color: #2ab56f;
+      ;
+      color: #ffffff;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      border-radius: 4px;
+      text-align: center;
+
+    }
+
+    #show-confirmed {
+      border: none;
+      width: 150px;
+      background-color: #2ab56f;
+      ;
+      color: #ffffff;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    #show-all-markers {
+      border: none;
+      width: 150px;
+      background-color: #2ab56f;
+      ;
+      color: #ffffff;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      border-radius: 4px;
+      text-align: center;
+    }
+  
+    #search-results {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 30px;
+      justify-content: center;
+      padding: 0px;
+    }
+
+
+    .search-result {
+      display: flex;
+      padding: 5px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+      box-sizing: border-box;
+      flex-basis: calc(25% - 1rem);
+      
+    }
+
+    .search-result input[type="checkbox"] {
+      margin-right: 5px;
+    }
+
+    .search-result label {
+      width: calc(100% - 30px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 0px;
+    }
+
+    #bottom-advertisment {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 80px;
+      z-index: 2;
+    }
+
+    #advertisment {
+      background-color: rgba(0, 0, 0, 0.7);
+      color: #ffffff;
+      font-size: 25px;
+      padding: 10px 20px;
+      border-radius: 30px;
+    }
+
+#search-results-container {
+  position: fixed;
+  width: 80%;
+  max-height: 300px; /* 적절한 최대 높이를 설정해주세요. */
+  min-height: 0;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto; /* 스크롤이 적절하게 되도록 overflow-y 속성을 추가했습니다. */
+  z-index: 10;
+}
+
+  </style>
+  <div class="fullscreen">
+    <div class="selections-row">
+      <select id="gu-select">
+        <option value=""> 지역구 </option>
+        <option value="양천">양천구</option>
+      </select>
+      <select id="center-select">
+        <option value=""> 센터를 선택해주세요 </option>
+      </select>
+    </div>
+    <form id="search-form">
+      <input type="text" id="search" placeholder="번호를 입력하세요">
+      <button id="searchBtn">검색</button>
+    </form>
+
+    <section id="search-results-container">
+      <div id="search-results-wrapper">
+        <div id="search-results"></div>
+
+      </div>
+      
+    </section>
+    <button id="hide-search-results">검색완료</button>
+  </div>
+
+  <div id="reopen-search">
+    <button>검색하기</button>
+  </div>
+
+  <section id="bottom">
+    <button id="current-location-marker">내위치 찾기</button>
+    <button id="show-confirmed">검색 확인</button>
+  </section>
+
+  <section id="bottom-advertisment">
+    <div id="advertisment">서울소방의 미래 chatGPT 연구회</div>
+  </section>
+
+  <div id="map"></div>
+
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34231db234ea6e90d3f8ec0f6a735cd5"></script>
+  <script>
+
+    document.getElementById("show-confirmed").addEventListener("click", function () {
+      const confirmedData = Object.keys(checkedBoxes)
+        .filter((key) => checkedBoxes[key])
+        .map((key) => data.find((d) => d[2] === parseInt(key, 10)));
+
+      if (!confirmedData.length) {
+        alert("체크한 결과값이 없습니다.");
+        return;
+      }
+
+      let result = `체크한 결과값 : ${confirmedData.length}개 \n\n`;
+      confirmedData.forEach((d) => {
+        result += `용수번호: ${d[2]}, 센터: ${d[4]}\n`;
+      });
+
+      alert(result);
+    });
+
+
+    const guSelect = document.getElementById("gu-select");
+    const centerSelect = document.getElementById("center-select");
+    const searchBtn = document.getElementById("searchBtn");
+    const resultDiv = document.getElementById("result");
+    var searchResultsDiv = document.getElementById("search-results");
+
+    const centersByGu = {
+      "강서": [
+        "발산119안전센터",
+        "등촌119안전센터",
+        "마곡119안전센터",
+        "개화119안전센터"
+      ],
+      "양천": [
+        "신월119안전센터",
+        "신트리119안전센터",
+        "신정119안전센터",
+        "목동119안전센터",
+        "현장대응단"
+      ]
+    };
+
+    guSelect.addEventListener('change', function () {
+      const guValue = this.value;
+      centerSelect.innerHTML = '<option value="">센터를 선택해주세요</option>';
+      if (guValue) {
+        centersByGu[guValue].forEach(function (center) {
+          const option = document.createElement('option');
+          option.value = center;
+          option.textContent = center;
+          centerSelect.appendChild(option);
+        });
+      }
+    });
+
+    searchBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      clearSearchResults(); // search results를 초기화할 수 있는 함수를 만들고 호출했습니다. 이 부분을 추가했습니다.
+      // 주요 작업을 별도의 함수로
+      updateSearchResults();
+      updateMarkers();
+    });
+
+
+
+
+
+    var mapContainer = document.getElementById('map'),
+      mapOption = {
+        center: new kakao.maps.LatLng(37.530212, 126.872946),
+        level: 4,
+        mapTypeId: kakao.maps.MapTypeId.ROADMAP
+      };
+    //마커를 숨깁니다.
+    function hideAllMarkers() {
+      for (let i = 0; i < markers.length; i++) {
+        markers[i].setMap(null);
+        markerOverlays[i].setMap(null);
+      }
+    };
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+    var data = [
+      [37.5430438, 126.883641, 390001, "양천", "목동119안전센터"],
+      [37.542941, 126.8718632, 350007, "양천", "목동119안전센터"],
+      [37.5436555, 126.8709846, 350199, "양천", "목동119안전센터"],
+      [37.5435168, 126.8730089, 350126, "양천", "목동119안전센터"],
+      [37.5436298, 126.8738874, 350044, "양천", "목동119안전센터"],
+      [37.5440945, 126.8737863, 350180, "양천", "목동119안전센터"],
+      [37.544228, 126.8760121, 350016, "양천", "목동119안전센터"],
+      [37.5444767, 126.8767736, 350059, "양천", "목동119안전센터"],
+      [37.5450353, 126.8751904, 350070, "양천", "목동119안전센터"],
+      [37.5445969, 126.8754187, 350133, "양천", "목동119안전센터"],
+      [37.5440674, 126.8751621, 350046, "양천", "목동119안전센터"],
+      [37.5438437, 126.8755801, 350047, "양천", "목동119안전센터"],
+      [37.5443768, 126.874684, 350031, "양천", "목동119안전센터"],
+      [37.5441429, 126.8744105, 350176, "양천", "목동119안전센터"],
+      [37.5440962, 126.8731621, 350063, "양천", "목동119안전센터"],
+      [37.5439555, 126.8730965, 350140, "양천", "목동119안전센터"],
+      [37.5446786, 126.8738437, 350091, "양천", "목동119안전센터"],
+      [37.5453293, 126.8737513, 350043, "양천", "목동119안전센터"],
+      [37.5442505, 126.8725271, 350127, "양천", "목동119안전센터"],
+      [37.5448418, 126.8726399, 350089, "양천", "목동119안전센터"],
+      [37.544505, 126.8719503, 350058, "양천", "목동119안전센터"],
+      [37.544149, 126.8712174, 350062, "양천", "목동119안전센터"],
+      [37.5447252, 126.871411, 350198, "양천", "목동119안전센터"],
+    ];
+    var markers = [];
+    var markerOverlays = [];
+    let checkedBoxes = {};
+    let currInfowindow;
+    const reopenSearchBtn = document.querySelector("#reopen-search button");
+    const showAllMarkersBtn = document.getElementById("show-all-markers");
+    let isShowingAllMarkers = false;
+    initializeMarkers();
+    hideAllMarkers();
+
+    // 새로운 검색 버튼
+    reopenSearchBtn.addEventListener("click", () => {
+      fullscreen.style.display = "flex";
+    });
+
+    // 검색창 닫기 버튼
+    const hideSearchResultsBtn = document.getElementById("hide-search-results");
+    const fullscreen = document.querySelector(".fullscreen");
+    hideSearchResultsBtn.addEventListener("click", () => {
+      fullscreen.style.display = "none";
+    });
+
+
+    // 전역 변수에 사용자가 선택한 지역 정보를 저장합니다.
+    let selectedGu = "";
+
+    // 지역 선택 콤보박스에서 값이 변경될 때마다 선택한 값을 저장합니다.
+    guSelect.addEventListener('change', function () {
+      selectedGu = this.value;
+    });
+
+    // 체크박스 활성화에 따른 마커 업데이트
+    function updateMarkers() {
+      const checkBoxes = Array.from(document.querySelectorAll('#search-results input[type="checkbox"]'));
+
+      checkBoxes.forEach((checkBox) => {
+        const dataIndex = data.findIndex((d) => d[2] === parseInt(checkBox.id.split("-")[2], 10));
+        const isChecked = checkBox.checked;
+
+        // 사용자가 선택한 지역 정보가 있고, 해당 데이터가 선택한 지역 정보와 일치하지 않으면 다음 데이터를 처리합니다.
+        if (selectedGu && data[dataIndex][3] !== selectedGu) {
+          return;
+        }
+
+        // 체크박스 체크가 되어있다면 맵에 표시됨
+        if (isChecked) {
+          markers[dataIndex].setMap(map);
+          markerOverlays[dataIndex].setMap(map);
+          map.panTo(markers[dataIndex].getPosition());
+          // 체크박스가 체크 되어있지 않으면 맵에서 표시안됨
+        } else {
+          markers[dataIndex].setMap(null);
+          markerOverlays[dataIndex].setMap(null);
+        }
+      });
+    }
+
+
+    document.getElementById("searchBtn")
+      .addEventListener("click", function (event) {
+        event.preventDefault();
+        clearSearchResults();
+
+        // 주요 작업을 별도의 함수로
+        updateSearchResults();
+        updateMarkers();
+      });
+
+    // 결과를 지우는 함수
+    function clearSearchResults() {
+      searchResultsDiv.innerHTML = '';
+    }
+
+
+
+    function updateSearchResults() {
+      const searchValue = document.getElementById("search").value;
+      const guValue = document.getElementById("gu-select").value;
+      const centerValue = document.getElementById("center-select").value;
+
+      const searchResults = data.filter((d) => {
+        const isSearchMatch = String(d[2]).startsWith(searchValue);
+        const isGuMatch = d[3] === guValue || !guValue;
+        const isCenterMatch = d[4] === centerValue || !centerValue;
+        const isChecked = checkedBoxes[d[2]] || false;
+
+        return isChecked || (isSearchMatch && isGuMatch && isCenterMatch);
+      });
+
+
+
+      // 추가된 부분: 정렬을 위한 코드
+      searchResults.sort((a, b) => a[2] - b[2]);
+
+      searchResults.forEach((coordinates) => {
+        const dataIndex = data.findIndex((d) => d[2] === coordinates[2]);
+
+        // 이미 추가된 검색 결과가 있다면 건너뜁니다.
+        const existingResult = document.getElementById(`search-result-${data[dataIndex][2]}`);
+        if (existingResult) return;
+
+        const div = document.createElement("div");
+        div.className = "search-result";
+        div.innerHTML = `
+    <input type="checkbox" id="search-result-${data[dataIndex][2]}" ${checkedBoxes[data[dataIndex][2]] ? 'checked' : ''}>
+    <label for="search-result-${data[dataIndex][2]}">${data[dataIndex][2]}</label>
+    `;
+        searchResultsDiv.appendChild(div);
+
+        const checkbox = document.querySelector(`#search-result-${data[dataIndex][2]}`);
+
+        // 체크박스를 클릭하면 마커가 보이거나 숨겨지도록 이벤트 리스너를 추가합니다.
+        checkbox.addEventListener("change", (event) => {
+          checkedBoxes[data[dataIndex][2]] = event.target.checked;
+          updateMarkers();
+        });
+      });
+    }
+
+
+
+    // 마커 용수확인 누르면 이미지를 변환시킵니다.    
+    function getMarkerImage(color) {
+      return new kakao.maps.MarkerImage(
+        color === "red" ? redMarkerImageSrc : blueMarkerImageSrc,
+        new kakao.maps.Size(40, 40));
+    }
+    var redMarkerImageSrc =
+      "image/지상식 소화전1.png";
+    var blueMarkerImageSrc =
+      "http://t1.daumcdn.net/localimg/localimages/07/2018/pc/img/marker_spot.png";
+
+    function initializeMarkers() {
+      data.forEach((coordinates, index) => {
+        var marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(coordinates[0], coordinates[1]),
+        });
+        marker.completed = false;
+        markers.push(marker);
+
+        //이 코드는 각 마커에 대한 번호가 포함된 사용자 정의 오버레이를 생성하고 위치를 설정하여 
+        //현재 일련번호 나옴
+        var markerStatus = data[index][6];
+        const markerOverlay = new kakao.maps.CustomOverlay({
+          content: `<div style="font-size: 25px; color: white; padding: 1px 3px; background-color: black;">${coordinates[2]}</div>`,
+          position: marker.getPosition(),
+          yAnchor: 2.3
+        });
+        //모든 오버레이들을 배열에 추가해 목록을 만들어 관리를 용이하게 합니다.
+        markerOverlays.push(markerOverlay);
+        //앞에서 설정한 오버레이 position 속성에 따라 지도에 나오게 합니다.
+        markerOverlay.setMap(map);
+
+        //지도의 마커에 "click" 이벤트 리스너를 추가하는 기능을 수행합니다. 
+        //사용자가 마커를 클릭하면 실행되는 이벤트 콜백 함수 내에서 다음 작업이 이루어집니다:
+        kakao.maps.event.addListener(marker, "click", function () {
+          var content = `<div style="padding:5px;">일련번호: ${data[index][2]}
+    <br><button onclick="toggleMarkerStatus(${index});">${marker.completed ? "용수확인 취소" : "용수확인 완료"}</button></div>`;
+
+          // 마커를 클릭했을때 오버레이 표시
+          var infowindow = new kakao.maps.InfoWindow({
+            content: content,
+          });
+
+          // 윈포윈도우가 1개만 켜지도록 설정
+          if (currInfowindow) {
+            currInfowindow.close();
+          }
+          currInfowindow = infowindow;
+
+          // 바닥을 클릭해도 윈포윈도우 꺼지도록 설정
+          kakao.maps.event.addListener(map, "click", function () {
+            if (currInfowindow) {
+              currInfowindow.close();
+              currInfowindow = null;
+            }
+          });
+
+          infowindow.open(map, marker);
+        });
+      });
+    }
+
+    //특정 마커의 상태를 전환하고 그에 따라 마커의 이미지를 변경한 후, 
+    //현재 열려있는 인포윈도우를 닫는 기능을 수행합니다. 
+    //함수는 다음과 같은 작업을 거칩니다:
+    function toggleMarkerStatus(index) {
+      var marker = markers[index];
+      marker.completed = !marker.completed;
+      marker.setImage(getMarkerImage(marker.completed ? "red" : "blue"));
+      currInfowindow.close();
+    }
+
+    function initializeCurrentPositionMarker() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+          const currentPositionMarker = new kakao.maps.Marker({
+            position: currentPosition,
+            // 현재좌표 마커 이미지
+            image: new kakao.maps.MarkerImage(
+              'https://lh3.googleusercontent.com/fife/APg5EOZbT5bg_EfK03jJ4eWGiaDUk1kcJn3DiCZ2sVT2uD-kZ060luW1q7Uqm4tS2Rakof3FPlHi7W4Vjsu5rhmtsPjaeCanpKynCL0COi6TqsaS1i09ez2G2Od1FyacItmxOYZKrx_X5gcUXS82VGMv0VGI569JD6pYy6RX3YPlSu35b8m7DUpNTUkcz4Hl64y5MJr_7K1Fd-wQtfs2rZlIF25aPXzPtbEI-Z6UXe2BWlw8ikYo3x4MBKw7ae7PMn5BsAUhcAwN0zyh1O8RvSbEj80PBo0-ApDoholWDFv_OCM1IyhS2-GNooo1WEOlCtpN0VHMEtrH8E_wydsVkXuJPqkaNFw-lzzc4iAx4fRnlkWsDEEc8LbCHgdD3DiWOj2RHTzFl9zhcsBVa0DJO58KuubyDPSY-JnMKVVr2rIRINWoDWLe_YnMhV_ArfbAaQLQt1cZz_0cbOjYysHWMlKapn8KTvQpeRh4qVt57XRBfkGVC2OpxEecvqtZnbJXp1niongkTlQqGf7huNMWS4VttpbSvdSVxbre2C1pom0D7YYyV4NedtC3ma0yoPCrnlpaY87FI9z024HBkUOhCq8T7Sy-m9I4Gg1v2cHocdUI8vUlziEJApSgGJvd_-fJa1arukH1mjE3hcblmAza-u5-PG6YyZr3e8cQ6xj0nDQ41_MQePCyFr1ZKC12DKiXOgAqhGeudMlKRwRNBlYWZ_qAz2EZaSTXZ7yAIGbfAQHk8U6Rj9Fl832AnATQr3Wkdqpi_kL2nd0TI23DALSL2T4fx3kWBbrj5lxxHSZVlwZt8xcpOxlfkQ24DQ49sEMLKJBDEiiipzswsp_eCBAaZAi2IleTEhFALmLhbkYFcQwUihLgjLfxXT9d8WQZAA3y77g_QhhI7n6h1oeJHiXOrg651rfZ8wbCcUlkED1qSfg9grh_qzk8LQW1_OMMRnLz23B7qt2kTGjnJx_6uwGMr7WXP1kA94valhjRIyElIEyH63EssuR6p1vk3wBiwodVbWjrUOBJn35P27D7dLvrDKULapcbtlnuVXOaSVUALbBQY-9WAbk6UCNGxCIQ72B5bl1rAla5xOkhXsWv0Sjkvg2Sgn84x8xES353uqgAluYlLWW33OuPSfJoNNIJpalo9q5_JK5SqVpicPJggFq_I3ksZD4jsIpFkxPhXbmUbJbvkyPZM6uuZXMPqHIiqBKud0LEyc8v9HzKUl3ZrAFb2LgkfYS9rYIACoeYRjKiggfrsDkwl6vlxrpHlAcmF5IWkEuASEaYuDi1hYqtr4bDSXO5j1hGSQZ1MbR-mVwJFD1ZM4jcnP5T-dTMfUB0lCWqO_jkXuUhSeUzPhOsGKe8l0jRp7E7peJYIJPPOjFvs_omI2E_qDdrBwa8Z06WpdNq9IIV_M2cfGyVqcmlcYnEzN70rkBwBKef0Zy0rJUVFyIkyetBK9mFedOB_MOWxel0yKm_Tn8sO6zwj5OKAx23UNi0tgUjWAUKGkln42iiLmsAO2dGzIz8A4AQsEvISY5n3PUR9KlCdBM6=w1920-h892',
+              new kakao.maps.Size(60, 60),
+              { offset: new kakao.maps.Point(12, 12), }),
+          });
+          currentPositionMarker.setMap(map);
+          watchCurrentPosition(currentPositionMarker);
+        });
+      } else { alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.'); }
+    }
+
+    // 사용자의 현재 위치를 지속적으로 파악하고 전달받은 마커의 위치를 변경시키는 함수입니다.
+    function watchCurrentPosition(marker) {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(function (position) {
+          const currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+          marker.setPosition(currentPosition);
+        });
+      } else { alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.'); }
+    }
+
+    // '내 위치 찾기' 버튼을 클릭하면 지도의 중심을 사용자의 현재 위치로 이동시키는 함수입니다.
+    function moveToCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          var currentPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+          map.setCenter(currentPosition);
+        });
+      } else { alert('이 브라우저에서 지오로케이션을 사용할 수 없습니다.'); }
+    }
+
+    // 현재 위치 마커를 초기화하고 지도에 표시합니다.
+    initializeCurrentPositionMarker();
+
+    // '내 위치 찾기' 버튼에 이벤트 리스너를 추가합니다.
+    document.getElementById("current-location-marker")
+      .addEventListener("click", moveToCurrentLocation);
+
+    // '내 위치 찾기' 버튼을 클릭하면 지도 중앙에 현재 위치로 이동합니다.
+    document.getElementById("current-location-marker").addEventListener("click", function () {
+      try {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function (position) {
+            var lat = position.coords.latitude,
+              lng = position.coords.longitude;
+
+            var moveLatLon = new kakao.maps.LatLng(lat, lng);
+            map.setCenter(moveLatLon);
+          });
+        } else {
+          throw new Error("위치 정보를 가져올 수 없습니다.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("현재 위치를 찾을 수 없습니다. 브라우저 설정을 확인해주세요.");
+      }
+    });
+
+  </script>
+</body>
+
+</html>

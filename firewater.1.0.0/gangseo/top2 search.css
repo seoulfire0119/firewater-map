@@ -1,0 +1,26 @@
+#reopen-search {
+  position: absolute;
+  top: 1.5%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  transform: translate(-50%, 0);
+}
+#reopen-search button {
+  border: none;
+  width: 300px;
+  padding: 10px;
+  background-color: #2ab56f;
+  color: #ffffff;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  border-radius: 4px;
+  text-align: center;
+  transition: background-color 0.3s ease;
+}
+#reopen-search button:hover {
+  background-color: #12a600;
+}

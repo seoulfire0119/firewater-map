@@ -1,0 +1,16 @@
+// 모두 보이기/감추기 할때 사용되는 함수
+    function showAllMarkers() {
+      for (let i = 0; i < data.length; i++) {
+        markers[i].setMap(map);
+        markerOverlays[i].setMap(map);
+      }
+    };
+    showAllMarkersBtn.addEventListener("click", () => {
+      if (!isShowingAllMarkers) {
+        showAllMarkers();
+        isShowingAllMarkers = true;
+      } else {
+        hideAllMarkers();
+        isShowingAllMarkers = false;
+      }
+    });

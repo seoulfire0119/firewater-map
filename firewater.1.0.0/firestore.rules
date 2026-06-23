@@ -2,23 +2,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 서울시 공무원 이메일 + 이메일 인증 완료 계정만 쓰기 허용
-    function isSeoulVerified() {
+    // 서울시 공무원 이메일(@seoul.go.kr) 계정만 쓰기 허용
+    // (샘플 버전: 이메일 인증은 가입 화면의 인증번호 입력으로 대체)
+    function isSeoul() {
       return request.auth != null
-        && request.auth.token.email.matches('.*@seoul[.]go[.]kr')
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email.matches('.*@seoul[.]go[.]kr');
     }
 
     match /markerStatus/{docId} {
       allow read:  if true;                       // 지도 표시용 — 누구나 읽기
-      allow write: if isSeoulVerified()
+      allow write: if isSeoul()
                    && request.resource.data.status in ['done', 'default'];
     }
 
     match /myHydrants/{docId} {
-      allow read, delete: if isSeoulVerified()
+      allow read, delete: if isSeoul()
                           && request.auth.uid == resource.data.userId;
-      allow create:       if isSeoulVerified()
+      allow create:       if isSeoul()
                           && request.auth.uid == request.resource.data.userId;
     }
   }

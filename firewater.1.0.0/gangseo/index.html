@@ -652,13 +652,21 @@ document.getElementById('login-submit').addEventListener('click', async () => {
     }
     if (pw !== pw2) { showMsg('error', '비밀번호가 일치하지 않습니다.'); return; }
     if (pw.length < 6) { showMsg('error', '비밀번호는 6자 이상이어야 합니다.'); return; }
+
+    // [샘플 버전] 실제 이메일 발송 대신 인증번호를 알림창으로 표시
+    const verifyCode = String(Math.floor(100000 + Math.random() * 900000));
+    alert('[샘플] 이메일 인증번호\n\n' + verifyCode +
+          '\n\n실제 서비스에서는 이 번호가 ' + email + ' 메일로 발송됩니다.');
+    const entered = prompt('인증번호 6자리를 입력해 주세요.');
+    if (entered === null) { showMsg('error', '이메일 인증이 취소되었습니다.'); return; }
+    if (entered.trim() !== verifyCode) {
+      showMsg('error', '인증번호가 일치하지 않습니다. 다시 시도해 주세요.'); return;
+    }
+
     try {
-      const cred = await auth.createUserWithEmailAndPassword(email, pw);
-      await cred.user.sendEmailVerification();   // 인증 메일 발송
-      await auth.signOut();                       // 인증 전까지는 로그인 상태로 두지 않음
-      switchTab('login');
-      showMsg('ok', email + ' 으로 인증 메일을 보냈습니다.\n메일의 링크를 클릭해 인증한 뒤 로그인해 주세요.');
-      pendingId = null;
+      await auth.createUserWithEmailAndPassword(email, pw);
+      document.getElementById('login-modal').style.display = 'none';
+      if (pendingId !== null) { toggleStatus(pendingId); pendingId = null; }
     } catch (e) {
       const msg = e.code === 'auth/email-already-in-use' ? '이미 사용 중인 이메일입니다.'
                 : e.code === 'auth/invalid-email'        ? '이메일 형식이 올바르지 않습니다.'
@@ -672,12 +680,6 @@ document.getElementById('login-submit').addEventListener('click', async () => {
       if (!u.email || !u.email.endsWith('@seoul.go.kr')) {
         await auth.signOut();
         showMsg('error', '서울시 공무원 이메일(@seoul.go.kr)만 로그인할 수 있습니다.');
-        return;
-      }
-      if (!u.emailVerified) {
-        await u.sendEmailVerification().catch(() => {});
-        await auth.signOut();
-        showMsg('error', '이메일 인증이 필요합니다.\n인증 메일을 다시 보냈으니 링크를 클릭한 뒤 로그인해 주세요.');
         return;
       }
       document.getElementById('login-modal').style.display = 'none';

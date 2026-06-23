@@ -653,9 +653,12 @@ document.getElementById('login-submit').addEventListener('click', async () => {
     if (pw !== pw2) { showMsg('error', '비밀번호가 일치하지 않습니다.'); return; }
     if (pw.length < 6) { showMsg('error', '비밀번호는 6자 이상이어야 합니다.'); return; }
     try {
-      await auth.createUserWithEmailAndPassword(email, pw);
-      document.getElementById('login-modal').style.display = 'none';
-      if (pendingId !== null) { toggleStatus(pendingId); pendingId = null; }
+      const cred = await auth.createUserWithEmailAndPassword(email, pw);
+      await cred.user.sendEmailVerification();   // 인증 메일 발송
+      await auth.signOut();                       // 인증 전까지는 로그인 상태로 두지 않음
+      switchTab('login');
+      showMsg('ok', email + ' 으로 인증 메일을 보냈습니다.\n메일의 링크를 클릭해 인증한 뒤 로그인해 주세요.');
+      pendingId = null;
     } catch (e) {
       const msg = e.code === 'auth/email-already-in-use' ? '이미 사용 중인 이메일입니다.'
                 : e.code === 'auth/invalid-email'        ? '이메일 형식이 올바르지 않습니다.'
@@ -664,7 +667,19 @@ document.getElementById('login-submit').addEventListener('click', async () => {
     }
   } else {
     try {
-      await auth.signInWithEmailAndPassword(email, pw);
+      const cred = await auth.signInWithEmailAndPassword(email, pw);
+      const u = cred.user;
+      if (!u.email || !u.email.endsWith('@seoul.go.kr')) {
+        await auth.signOut();
+        showMsg('error', '서울시 공무원 이메일(@seoul.go.kr)만 로그인할 수 있습니다.');
+        return;
+      }
+      if (!u.emailVerified) {
+        await u.sendEmailVerification().catch(() => {});
+        await auth.signOut();
+        showMsg('error', '이메일 인증이 필요합니다.\n인증 메일을 다시 보냈으니 링크를 클릭한 뒤 로그인해 주세요.');
+        return;
+      }
       document.getElementById('login-modal').style.display = 'none';
       if (pendingId !== null) { toggleStatus(pendingId); pendingId = null; }
     } catch (e) {

@@ -27,6 +27,12 @@ proj4.defs('KR_TM',
   '+ellps=GRS80 +units=m +no_defs'
 );
 
+// 앞자리 0 제거: "002469" → "2469", "000000" → "0"
+function stripLeadingZeros(v) {
+  const s = String(v == null ? '' : v).replace(/^0+/, '');
+  return s === '' ? '0' : s;
+}
+
 function httpGet(url) {
   return new Promise((resolve, reject) => {
     http.get(url, res => {
@@ -96,8 +102,8 @@ async function main() {
         if (isNaN(lat) || isNaN(lng)) continue;
 
         all.push({
-          // id: 화면표시·검색용 소화용수번호 (순번 SNO 가 아님)
-          id:   (hydrantNoKey && r[hydrantNoKey]) || r.SNO,
+          // id: 화면표시·검색용 소화용수번호 (순번 SNO 가 아님). 앞자리 0 제거 (예: 002469 → 2469)
+          id:   stripLeadingZeros((hydrantNoKey && r[hydrantNoKey]) || r.SNO),
           // uid: 전국 고유 식별자(소화용수ID) — 용수확인 상태 저장 키로 사용
           uid:  (hydrantIdKey && r[hydrantIdKey]) || r.SNO,
           lat:  Math.round(lat * 1e6) / 1e6,
